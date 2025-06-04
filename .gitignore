@@ -1,0 +1,85 @@
+# Dependencies
+node_modules
+server/node_modules
+
+# Build outputs
+dist
+build
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# PM2 logs
+pm2-*.log
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Testing artifacts
+*.txt
+*.html
+response.json
+cookies.txt
+headers.txt
+session.txt
+api_response.txt
+
+# Development scripts (temporary)
+create-*.ts
+check-*.ts
+fix-*.ts
+test-*.ts
+cleanup-*.ts
+
+# Archives
+*.tar.gz
+*.zip
+
+# Server public files
+server/public
+
+# Build configuration backups
+vite.config.ts.*
+
+# Database backups (should be stored separately)
+*.sql
+
+# Generated icon
+generated-icon.png
+
+# Miscellaneous
+theme.json
