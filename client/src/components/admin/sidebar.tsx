@@ -1,27 +1,27 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/use-auth";
+import {
+    Building,
+    ChevronDown,
+    Home,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    MessageSquare,
+    Users,
+    X
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
-import { 
-  LayoutDashboard, 
-  Building, 
-  MessageSquare, 
-  LogOut,
-  Menu,
-  X,
-  Home,
-  Users,
-  ChevronDown
-} from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -81,7 +81,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center">
             <Link href="/admin">
-              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">South Delhi Reality</h1>
+              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">South Delhi Realty</h1>
             </Link>
           </div>
           
@@ -158,7 +158,7 @@ export default function Sidebar() {
         <div className="h-full flex flex-col w-64">
           <div className="p-6 border-b">
             <Link href="/admin">
-              <h2 className="text-xl font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity">SD Reality Admin</h2>
+              <h2 className="text-xl font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity">SD Realty Admin</h2>
             </Link>
             {user && (
               <p className="text-xs mt-1 text-muted-foreground">

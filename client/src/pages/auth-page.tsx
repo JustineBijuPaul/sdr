@@ -1,27 +1,27 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
 } from "@/components/ui/card";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Building2, Lock, User, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Building2, Loader2, Lock, User } from "lucide-react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { useLocation } from "wouter";
+import { z } from "zod";
 
 // Login form schema
 const loginSchema = z.object({
@@ -77,7 +77,7 @@ export default function AuthPage() {
             <div className="flex items-center justify-center mb-4">
               <Building2 className="h-10 w-10 text-primary" />
             </div>
-            <CardTitle className="text-2xl text-center">South Delhi Reality</CardTitle>
+            <CardTitle className="text-2xl text-center">South Delhi Realty</CardTitle>
             <CardDescription className="text-center">
               Admin Portal - Enter your credentials to access the dashboard
             </CardDescription>
@@ -147,7 +147,7 @@ export default function AuthPage() {
       <div className="hidden md:block md:w-1/2 bg-gradient-to-r from-primary/20 to-primary/40 p-8">
         <div className="h-full flex flex-col justify-center">
           <h1 className="text-4xl font-bold text-primary mb-6">
-            South Delhi Reality
+            South Delhi Realty
           </h1>
           <p className="text-lg mb-8">
             Managing properties is easy with our advanced real estate management system.

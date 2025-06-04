@@ -6,7 +6,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'south-delhi-reality',
+    folder: 'south-delhi-realty',
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'],
     resource_type: 'auto', // detects if it's image or video
   } as any,

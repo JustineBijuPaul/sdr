@@ -511,7 +511,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProperty(propertyData: InsertProperty): Promise<PropertyWithRelations> {
-    const [newProperty] = await db.insert(properties).values(propertyData).returning({
+    // Insert the property data
+    const result = await db.insert(properties).values(propertyData);
+    const insertId = result[0].insertId;
+    
+    // Fetch the created property by ID
+    const [newProperty] = await db.select({
       id: properties.id,
       title: properties.title,
       slug: properties.slug,
@@ -539,7 +544,7 @@ export class DatabaseStorage implements IStorage {
       isActive: properties.isActive,
       createdAt: properties.createdAt,
       updatedAt: properties.updatedAt,
-    });
+    }).from(properties).where(eq(properties.id, Number(insertId)));
     
     if (!newProperty) {
       throw new Error("Failed to create property");

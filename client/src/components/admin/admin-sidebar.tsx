@@ -1,20 +1,19 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { 
-  LayoutDashboard, 
-  Building, 
-  MessageSquare, 
-  LogOut, 
-  ChevronRight,
-  Menu,
-  X,
-  Users
-} from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/use-auth";
+import {
+    Building,
+    ChevronRight,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    MessageSquare,
+    Users
+} from "lucide-react";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 
 export default function AdminSidebar() {
   const [location] = useLocation();
@@ -50,7 +49,7 @@ export default function AdminSidebar() {
   const SidebarContent = () => (
     <div className="h-full flex flex-col py-6">
       <div className="px-6 mb-6">
-        <h2 className="text-xl font-bold text-primary">SD Reality Admin</h2>
+        <h2 className="text-xl font-bold text-primary">SD Realty Admin</h2>
       </div>
       
       <Separator className="mb-6" />

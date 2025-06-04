@@ -1,10 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { 
-  Home, 
-  MapPin, 
-  Handshake, 
-  Clock,
-  TrendingUp
+import {
+    Clock,
+    Handshake,
+    Home,
+    MapPin,
+    TrendingUp
 } from "lucide-react";
 
 export default function AboutSection() {
@@ -13,9 +12,9 @@ export default function AboutSection() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <h2 className="text-3xl font-bold mb-6">About South Delhi Reality</h2>
+            <h2 className="text-3xl font-bold mb-6">About South Delhi Realty</h2>
             <p className="text-gray-600 mb-4">
-              South Delhi Reality is the premier real estate agency specializing in the most prestigious neighborhoods of South Delhi. With over 15 years of experience, we have established ourselves as the trusted partner for buyers, sellers, and renters looking for exceptional properties in this coveted area.
+              South Delhi Realty is the premier real estate agency specializing in the most prestigious neighborhoods of South Delhi. With over 15 years of experience, we have established ourselves as the trusted partner for buyers, sellers, and renters looking for exceptional properties in this coveted area.
             </p>
             <p className="text-gray-600 mb-6">
               Our team of expert real estate professionals has deep knowledge of the South Delhi market and is committed to providing personalized service to meet your property needs.
@@ -73,7 +72,7 @@ export default function AboutSection() {
           <div className="hidden lg:block">
             <img 
               src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80" 
-              alt="South Delhi Reality Team" 
+              alt="South Delhi Realty Team" 
               className="rounded-lg shadow-xl"
             />
           </div>

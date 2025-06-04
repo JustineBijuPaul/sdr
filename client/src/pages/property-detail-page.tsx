@@ -1,51 +1,47 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
-import { PropertyWithRelations, insertInquirySchema } from "@shared/schema";
-import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
+import Header from "@/components/layout/header";
 import PropertyGallery from "@/components/properties/property-gallery";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { 
-  Bed, 
-  Bath, 
-  ArrowLeftRight, 
-  CalendarIcon, 
-  MapPin, 
-  ArrowUpDown, 
-  Compass, 
-  Car, 
-  DollarSign, 
-  Share2, 
-  Heart
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
+import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle
 } from "@/components/ui/card";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { formatIndianRupees } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { formatIndianRupees } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PropertyWithRelations, insertInquirySchema } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+    ArrowLeftRight,
+    Bath,
+    Bed,
+    CalendarIcon,
+    Heart,
+    MapPin,
+    Share2
+} from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useLocation, useParams } from "wouter";
+import { z } from "zod";
 
 // Extended inquiry schema with validation
 const propertyInquirySchema = insertInquirySchema.extend({
@@ -485,7 +481,7 @@ export default function PropertyDetailPage() {
                     <Phone className="h-4 w-4 mr-2" /> +91 98765 43210
                   </Button>
                   <Button variant="outline" className="w-full justify-start">
-                    <Mail className="h-4 w-4 mr-2" /> info@southdelhireality.com
+                    <Mail className="h-4 w-4 mr-2" /> info@southdelhirealty.com
                   </Button>
                 </CardFooter>
               </Card>

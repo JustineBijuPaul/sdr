@@ -28,8 +28,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Basic middleware setup
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Security middleware
 app.use(helmet({
@@ -39,6 +39,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
+      mediaSrc: ["'self'", "https:", "data:", "blob:", "https://res.cloudinary.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       connectSrc: ["'self'", "https://api.cloudinary.com", "https://res.cloudinary.com", "https://overpass-api.de"],
       frameSrc: ["'none'"],

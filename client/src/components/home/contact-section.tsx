@@ -1,38 +1,37 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  MapPin,
-  Phone,
-  Mail,
-  Clock,
-  Facebook,
-  Instagram,
-  MessageCircle
-} from "lucide-react";
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { insertInquirySchema } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import {
+    Clock,
+    Facebook,
+    Instagram,
+    Mail,
+    MapPin,
+    MessageCircle,
+    Phone
+} from "lucide-react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 // Extend the inquiry schema with additional validation
 const contactFormSchema = insertInquirySchema.extend({
@@ -252,9 +251,9 @@ export default function ContactSection() {
                   </div>
                   <div>
                     <h4 className="font-bold mb-1">Email</h4>
-                    <p className="text-gray-600">southdelhireality@gmail.com</p>
-                    <p className="text-gray-600">
-                      southdelhirealitytech@gmail.com
+                    <p className="text-gray-600">southdelhirealty@gmail.com</p>
+                    <p className="text-muted-foreground text-sm">
+                      southdelhirealtytech@gmail.com
                     </p>
                   </div>
                 </div>

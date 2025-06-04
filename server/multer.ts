@@ -14,7 +14,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'south-delhi-reality',
+    folder: 'south-delhi-realty',
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'],
     resource_type: 'auto', // detects if it's image or video
     // Add transformation to ensure proper processing
@@ -36,3 +36,4 @@ const upload: Multer = multer({
 });
 
 export { upload };
+

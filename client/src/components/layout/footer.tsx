@@ -1,5 +1,4 @@
-import { Link } from "wouter";
-import { Facebook, Instagram, MessageCircle} from "lucide-react";
+import { Facebook, Instagram, MessageCircle } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -7,7 +6,7 @@ export default function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center mb-12 justify-center text-center">
           <div>
-            <h3 className="text-xl font-bold mb-6">South Delhi Reality</h3>
+            <h3 className="text-xl font-bold mb-6">South Delhi Realty</h3>
             <p className="text-gray-300 mb-6">
               Your trusted partner for premium real estate in South Delhi. We help you find your dream property with personalized service and local expertise.
             </p>
@@ -28,7 +27,7 @@ export default function Footer() {
         <div className="border-t border-gray-700 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 mb-4 md:mb-0">
-              &copy; {new Date().getFullYear()} South Delhi Reality. All rights reserved.
+              &copy; {new Date().getFullYear()} South Delhi Realty. All rights reserved.
             </p>
             <div className="flex space-x-6">
               <a href="#" className="text-gray-400 hover:text-white transition">Terms</a>

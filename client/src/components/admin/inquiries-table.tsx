@@ -458,7 +458,7 @@ export default function InquiriesTable() {
                                         type="button"
                                         size="sm"
                                         onClick={() => {
-                                          window.location.href = `mailto:${selectedInquiry.email}?subject=Re: Your Inquiry at South Delhi Reality`;
+                                          window.location.href = `mailto:${selectedInquiry.email}?subject=Re: Your Inquiry at South Delhi Realty`;
                                         }}
                                       >
                                         <Mail className="h-4 w-4 mr-2" /> Reply via Email

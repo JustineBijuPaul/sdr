@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     insertPropertySchema,
@@ -43,10 +43,10 @@ import {
     PropertyMedia,
     PropertyWithRelations
 } from "@shared/schema";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { FilmIcon, ImagePlus, Loader2, MapIcon, MapPin, Search, Upload, X } from "lucide-react";
+import { Edit, FilmIcon, ImagePlus, Loader2, MapIcon, MapPin, Search, Shield, Upload, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
@@ -75,6 +75,79 @@ interface POI {
   lat: number;
   lon: number;
 }
+
+// Helper function to generate generalized location information
+const generateGeneralizedLocation = (lat: number, lon: number): string => {
+  // Add random offset within 2km radius to protect exact location
+  const radiusKm = 2;
+  const randomAngle = Math.random() * 2 * Math.PI;
+  const randomDistance = Math.random() * radiusKm;
+  
+  // Convert km to degrees (approximate)
+  const deltaLat = (randomDistance * Math.cos(randomAngle)) / 111;
+  const deltaLon = (randomDistance * Math.sin(randomAngle)) / (111 * Math.cos(lat * Math.PI / 180));
+  
+  const approxLat = lat + deltaLat;
+  const approxLon = lon + deltaLon;
+  
+  // Generate area description based on coordinates
+  const getAreaDescription = (latitude: number, longitude: number): string => {
+    // South Delhi area mapping (approximate)
+    if (latitude >= 28.5 && latitude <= 28.6) {
+      if (longitude >= 77.15 && longitude <= 77.25) {
+        return "South Delhi - Central Area";
+      } else if (longitude >= 77.25 && longitude <= 77.35) {
+        return "South Delhi - Eastern Sector";
+      } else if (longitude >= 77.05 && longitude <= 77.15) {
+        return "South Delhi - Western Zone";
+      }
+    }
+    return "South Delhi - Premium Locality";
+  };
+  
+  const areaDesc = getAreaDescription(approxLat, approxLon);
+  
+  return `📍 General Location: ${areaDesc}
+🔒 Privacy Protected: Exact address shown to verified buyers only
+📏 Approximate Area: Within 2km radius of actual location
+📞 Contact: Through our verified agents only
+🏢 Brokerage: South Delhi Realty - Licensed Real Estate Services
+⚡ Fast Response: 24/7 customer support available
+🔐 Secure Viewing: Property visits by appointment only`;
+};
+
+// Function to get nearby landmarks for general description
+const getNearbyLandmarks = async (lat: number, lon: number): Promise<string[]> => {
+  try {
+    const radiusInMeters = 2000; // 2km radius
+    const overpassQuery = `
+      [out:json];
+      (
+        node["amenity"~"^(hospital|school|university|mall|park)$"](around:${radiusInMeters},${lat},${lon});
+        way["amenity"~"^(hospital|school|university|mall|park)$"](around:${radiusInMeters},${lat},${lon});
+      );
+      out body;
+    `;
+    
+    const response = await fetch(`https://overpass-api.de/api/interpreter`, {
+      method: 'POST',
+      body: overpassQuery
+    });
+    
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    const landmarks = data.elements
+      .filter((element: any) => element.tags?.name)
+      .map((element: any) => element.tags.name)
+      .slice(0, 3); // Limit to 3 landmarks
+    
+    return landmarks;
+  } catch (error) {
+    console.error('Error fetching landmarks:', error);
+    return [];
+  }
+};
 
 // MapLocationPicker component for interactive map
 interface MapLocationPickerProps {
@@ -320,6 +393,7 @@ interface PropertyFormProps {
 export default function PropertyForm({ propertyId }: PropertyFormProps) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState("details");
   const [uploadedMedia, setUploadedMedia] = useState<Array<{
     cloudinaryId: string;
@@ -328,6 +402,9 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
     isFeatured: boolean;
     orderIndex: number;
     id?: number;
+    fileName?: string;
+    processingStatus?: string;
+    processingMessage?: string;
   }>>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [facilities, setFacilities] = useState<Array<{
@@ -346,6 +423,7 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
   const [foundFacilities, setFoundFacilities] = useState<POI[]>([]);
   const [selectedFacilities, setSelectedFacilities] = useState<{ [key: number]: boolean }>({});
   const [showMapView, setShowMapView] = useState(false);
+  const [contactDetailsMode, setContactDetailsMode] = useState<'manual' | 'auto'>('manual');
 
   // Define type for property types response
   type PropertyTypesResponse = {
@@ -441,7 +519,10 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
           cloudinaryUrl: item.cloudinaryUrl,
           mediaType: item.mediaType,
           isFeatured: Boolean(item.isFeatured),
-          orderIndex: item.orderIndex || 0
+          orderIndex: item.orderIndex || 0,
+          fileName: item.fileName,
+          processingStatus: item.processingStatus,
+          processingMessage: item.processingMessage
         })));
       }
       
@@ -812,74 +893,158 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
     
     setUploadingMedia(true);
     
-    const file = event.target.files[0];
+    const files = Array.from(event.target.files);
+    const successfulUploads: any[] = [];
+    const failedUploads: string[] = [];
     
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const fileDataPromise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Failed to read file as data URL'));
+      // Process files sequentially to avoid overwhelming the server
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        try {
+          console.log(`📤 Uploading file ${i + 1}/${files.length}: ${file.name}`);
+          
+          // Check file size before upload (100MB limit)
+          const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+          if (file.size > maxSizeBytes) {
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            throw new Error(`File too large: ${fileSizeMB}MB exceeds 100MB limit. Please compress your video or choose a smaller file.`);
           }
-        };
-        reader.onerror = () => reject(reader.error);
-      });
-      
-      reader.readAsDataURL(file);
-      const fileData = await fileDataPromise;
-      
-      // Get property ID for the upload
-      const currentPropertyId = propertyId || 'temp';
-      
-      const response = await fetch('/api/admin/media/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileData,
-          fileName: file.name,
-          propertyId: currentPropertyId
-        }),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.message || `Upload failed with status: ${response.status}`;
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.cloudinaryId || !data.cloudinaryUrl) {
-        throw new Error('Invalid response from server: missing required fields');
-      }
-      
-      console.log('Upload successful:', data);
-      
-      // Add to uploaded media with order index
-      setUploadedMedia(prev => [
-        ...prev, 
-        {
-          cloudinaryId: data.cloudinaryId,
-          cloudinaryUrl: data.cloudinaryUrl,
-          mediaType: data.mediaType || (file.type.startsWith('video/') ? 'video' : 'image'),
-          isFeatured: prev.length === 0, // First image is featured by default
-          orderIndex: prev.length
+          
+          // Check file type
+          const isImage = file.type.match(/^image\/(jpeg|jpg|png|gif|webp)$/i);
+          const isVideo = file.type.match(/^video\/(mp4|mov|avi|quicktime|x-msvideo|webm|x-matroska)$/i);
+          
+          if (!isImage && !isVideo) {
+            throw new Error(`Unsupported file type: ${file.type}. Please use images (JPG, PNG, GIF, WebP) or videos (MP4, MOV, AVI, MKV, WebM).`);
+          }
+          
+          // Convert file to base64
+          const reader = new FileReader();
+          const fileDataPromise = new Promise<string>((resolve, reject) => {
+            reader.onload = () => {
+              if (typeof reader.result === 'string') {
+                resolve(reader.result);
+              } else {
+                reject(new Error('Failed to read file as data URL'));
+              }
+            };
+            reader.onerror = () => reject(reader.error);
+          });
+          
+          reader.readAsDataURL(file);
+          const fileData = await fileDataPromise;
+          
+          // Get property ID for the upload
+          const currentPropertyId = propertyId || 'temp';
+          
+          const response = await fetch('/api/admin/media/upload-watermarked', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fileData,
+              fileName: file.name,
+              propertyId: currentPropertyId,
+              applyWatermark: true // Enable watermarking
+            }),
+            credentials: 'include'
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            
+            // Handle specific error types with better user messages
+            if (response.status === 413) {
+              const sizeInfo = errorData.actualSizeMB ? ` (${errorData.actualSizeMB}MB)` : '';
+              throw new Error(`File too large${sizeInfo}. Maximum size: ${errorData.maxSizeMB || 100}MB. Please compress your video or choose a smaller file.`);
+            }
+            
+            if (response.status === 408) {
+              throw new Error(`Upload timeout for ${file.name}. Large video files may take longer - try compressing the video or check your internet connection.`);
+            }
+            
+            if (response.status === 400 && errorData.error === 'Unsupported file type') {
+              throw new Error(`Unsupported file type: ${file.name}. Please use images (JPG, PNG, GIF, WebP) or videos (MP4, MOV, AVI, MKV, WebM).`);
+            }
+            
+            // Generic error fallback
+            const errorMessage = errorData.details || errorData.error || errorData.message || `Upload failed with status: ${response.status}`;
+            throw new Error(errorMessage);
+          }
+          
+          const data = await response.json();
+          
+          if (!data.cloudinaryId || !data.cloudinaryUrl) {
+            throw new Error('Invalid response from server: missing required fields');
+          }
+          
+          console.log(`✅ Upload successful for ${file.name}:`, data);
+          
+          // Add to successful uploads
+          successfulUploads.push({
+            cloudinaryId: data.cloudinaryId,
+            cloudinaryUrl: data.cloudinaryUrl,
+            mediaType: data.mediaType || (file.type.startsWith('video/') ? 'video' : 'image'),
+            isFeatured: (uploadedMedia.length + successfulUploads.length) === 0, // First image is featured by default
+            orderIndex: uploadedMedia.length + successfulUploads.length,
+            fileName: file.name,
+            // Store processing status for large videos
+            processingStatus: data.processingStatus || 'complete',
+            processingMessage: data.message
+          });
+          
+        } catch (error) {
+          console.error(`❌ Upload failed for ${file.name}:`, error);
+          failedUploads.push(`${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      ]);
+      }
+      
+      // Add all successful uploads to the media list
+      if (successfulUploads.length > 0) {
+        setUploadedMedia(prev => [...prev, ...successfulUploads]);
+      }
       
       // Reset file input
       event.target.value = '';
       
-      toast({
-        title: "Upload successful",
-        description: "Media has been uploaded successfully",
-      });
+      // Show success/error messages
+      if (successfulUploads.length > 0) {
+        const asyncVideos = successfulUploads.filter(upload => upload.processingStatus === 'async');
+        const syncUploads = successfulUploads.filter(upload => upload.processingStatus !== 'async');
+        
+        if (asyncVideos.length > 0 && syncUploads.length === 0) {
+          // All uploads are async videos
+          toast({
+            title: "Video uploaded successfully!",
+            description: `${asyncVideos.length} video(s) uploaded. Watermarking is being processed in the background - you can continue using the videos.`,
+          });
+        } else if (asyncVideos.length > 0 && syncUploads.length > 0) {
+          // Mixed uploads
+          toast({
+            title: "Upload completed",
+            description: `${syncUploads.length} file(s) with watermark ready, ${asyncVideos.length} video(s) still processing watermark in background.`,
+          });
+        } else {
+          // All uploads are complete/sync
+          toast({
+            title: "Upload completed",
+            description: `${successfulUploads.length} file(s) uploaded successfully with SOUTH DELHI REALTY watermark`,
+          });
+        }
+      }
+      
+      if (failedUploads.length > 0) {
+        toast({
+          title: "Some uploads failed",
+          description: `${failedUploads.length} file(s) failed to upload. Check console for details.`,
+          variant: "destructive",
+        });
+        console.error('Failed uploads:', failedUploads);
+      }
+      
     } catch (error) {
       console.error('Media upload error:', error);
       toast({
@@ -901,13 +1066,106 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
   };
 
   // Remove media
-  const removeMedia = (index: number) => {
-    setUploadedMedia(prev => prev.filter((_, i) => i !== index));
+  const removeMedia = async (index: number) => {
+    const mediaItem = uploadedMedia[index];
+    
+    if (!mediaItem) {
+      console.error('❌ Media item not found at index:', index);
+      toast({
+        title: "Error",
+        description: "Media item not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log('🗑️ Attempting to remove media:', { index, mediaItem });
+    console.log('🗑️ Media ID exists:', !!mediaItem.id);
+    console.log('🗑️ All uploaded media IDs:', uploadedMedia.map(m => ({ id: m.id, cloudinaryId: m.cloudinaryId })));
+    
+    try {
+      // If the media has an ID, it exists in the database and needs to be deleted from server
+      if (mediaItem.id) {
+        console.log(`🗑️ Deleting media with ID ${mediaItem.id} from server...`);
+        
+        const response = await fetch(`/api/admin/media/${mediaItem.id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          
+          // Handle 404 specifically - media might have been deleted already
+          if (response.status === 404) {
+            console.log(`⚠️ Media ID ${mediaItem.id} not found on server (already deleted?)`);
+            toast({
+              title: "Media removed",
+              description: "File was already removed from server",
+            });
+          } else {
+            throw new Error(errorData.message || `Failed to delete media: ${response.status}`);
+          }
+        } else {
+          console.log(`✅ Successfully deleted media ${mediaItem.id} from server and Cloudinary`);
+          toast({
+            title: "Media deleted",
+            description: "File removed from server and cloud storage",
+          });
+        }
+      } else {
+        // If no ID, it's only in local state (not yet saved to server)
+        console.log(`🗑️ Removing media from local state only (not saved to server yet)`);
+        
+        toast({
+          title: "Media removed",
+          description: "File removed from upload queue",
+        });
+      }
+      
+      // Remove from local state regardless of server result
+      setUploadedMedia(prev => {
+        const newMedia = prev.filter((_, i) => i !== index);
+        console.log('🗑️ Updated media list:', newMedia.map(m => ({ id: m.id, cloudinaryId: m.cloudinaryId })));
+        return newMedia;
+      });
+      
+      // ✨ Invalidate React Query cache to refresh property data everywhere
+      if (mediaItem.id && propertyId) {
+        console.log('🔄 Invalidating cache for property data...');
+        // Invalidate specific property data
+        queryClient.invalidateQueries({
+          queryKey: [`/api/admin/properties/${propertyId}`]
+        });
+        // Invalidate public property data (by slug)
+        if (property?.slug) {
+          queryClient.invalidateQueries({
+            queryKey: [`/api/properties/${property.slug}`]
+          });
+        }
+        // Invalidate all properties list
+        queryClient.invalidateQueries({
+          queryKey: ['/api/admin/properties']
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['/api/properties']
+        });
+        console.log('✅ Cache invalidation completed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error deleting media:', error);
+      toast({
+        title: "Deletion failed",
+        description: error instanceof Error ? error.message : "Failed to delete media",
+        variant: "destructive",
+      });
+    }
   };
 
   // Add a single facility manually
   const addFacility = () => {
-    console.log("�� addFacility called for manual entry");
+    console.log("🟡 addFacility called for manual entry");
     console.log("🟡 newFacility state:", newFacility);
     console.log("🟡 facilityName:", newFacility.facilityName);
     console.log("🟡 distance:", newFacility.distance);
@@ -923,17 +1181,7 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
       return;
     }
     
-    if (!newFacility.distance.trim()) {
-      console.log("🟡 Validation failed: missing distance");
-      toast({
-        title: "Distance required",
-        description: "Please enter the distance to the facility",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    console.log("🟡 Adding manual facility:", newFacility);
+    // Add to facilities list
     setFacilities(prev => [...prev, { ...newFacility }]);
     setNewFacility({ facilityName: "", distance: "", facilityType: "school" });
     
@@ -1409,14 +1657,69 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
                     name="contactDetails"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Contact Details</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Enter contact information and address" 
-                            className="min-h-[80px]" 
-                            {...field} 
-                          />
-                        </FormControl>
+                        <FormLabel className="flex items-center gap-2">
+                          Contact Details 
+                          <Shield className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm text-blue-600 font-normal">Privacy Protected</span>
+                        </FormLabel>
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={contactDetailsMode === 'manual' ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setContactDetailsMode('manual')}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Manual Entry
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={contactDetailsMode === 'auto' ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setContactDetailsMode('auto');
+                                const lat = parseFloat(form.getValues('latitude') || '28.5355');
+                                const lon = parseFloat(form.getValues('longitude') || '77.2101');
+                                const generalized = generateGeneralizedLocation(lat, lon);
+                                form.setValue('contactDetails', generalized);
+                              }}
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Auto-Generate (2km Privacy)
+                            </Button>
+                          </div>
+                          
+                          {contactDetailsMode === 'auto' && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                              <div className="flex items-start gap-2">
+                                <Shield className="h-4 w-4 mt-0.5 text-blue-600" />
+                                <div>
+                                  <p className="font-medium">Privacy Protection Active</p>
+                                  <p className="mt-1">Contact details are generalized within 2km radius. Exact location and contact information will only be shared with verified potential buyers through our secure system.</p>
+                                  <ul className="mt-2 space-y-1 text-xs">
+                                    <li>• Approximate location area only</li>
+                                    <li>• Contact through licensed agents</li>
+                                    <li>• Buyer verification required</li>
+                                    <li>• Scheduled property visits only</li>
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <FormControl>
+                            <Textarea 
+                              placeholder={contactDetailsMode === 'auto' 
+                                ? "Auto-generated privacy-protected contact details will appear here..." 
+                                : "Enter contact information and address"
+                              } 
+                              className="min-h-[120px]" 
+                              {...field}
+                              readOnly={contactDetailsMode === 'auto'}
+                            />
+                          </FormControl>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1526,26 +1829,55 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium mb-4">Upload Media</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="bg-blue-500 text-white rounded-full p-1 mt-0.5">
+                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-blue-800 mb-1">🎨 Enhanced Upload Features</h4>
+                      <div className="text-blue-700 text-sm space-y-1">
+                        <p>✅ Automatic watermarking for <strong>both images AND videos</strong> with "SOUTH DELHI REALTY" branding</p>
+                        <p>✅ Support for images (JPG, PNG, GIF, WebP) and videos (MP4, MOV, AVI, MKV, WebM)</p>
+                        <p>📊 File size limit: <strong>100MB per file</strong> (increased for video support)</p>
+                        <p>🎬 All media files automatically branded with company watermark</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="flex items-center space-x-4">
                   <Label htmlFor="media-upload" className="cursor-pointer">
-                    <div className="p-4 border border-dashed rounded-md flex flex-col items-center justify-center hover:bg-slate-50">
-                      <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
-                      <span className="text-sm font-medium">Click to upload</span>
-                      <span className="text-xs text-muted-foreground">(Images & Videos)</span>
+                    <div className="p-6 border-2 border-dashed rounded-lg flex flex-col items-center justify-center hover:bg-slate-50 hover:border-primary transition-colors">
+                      <Upload className="h-10 w-10 mb-3 text-muted-foreground" />
+                      <span className="text-base font-medium mb-1">Click to upload multiple files</span>
+                      <span className="text-sm text-muted-foreground mb-2">Images & Videos supported</span>
+                      <div className="flex items-center space-x-2 text-xs text-blue-600">
+                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M3 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 13a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3zM12 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1V4zM12 13a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-3z" clipRule="evenodd" />
+                        </svg>
+                        <span>Auto-watermarked with brand logo</span>
+                      </div>
                     </div>
                     <input
                       id="media-upload"
                       type="file"
                       accept="image/*,video/*"
+                      multiple
                       className="hidden"
                       onChange={handleMediaUpload}
                       disabled={uploadingMedia}
                     />
                   </Label>
                   {uploadingMedia && (
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
-                      <span>Uploading...</span>
+                    <div className="flex items-center bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <div className="w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                      <div>
+                        <span className="font-medium text-yellow-800">Processing uploads...</span>
+                        <p className="text-xs text-yellow-700 mt-1">Applying watermarks and uploading files</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1554,43 +1886,87 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
               <div>
                 <h3 className="text-lg font-medium mb-4">Media Gallery</h3>
                 {uploadedMedia.length === 0 ? (
-                  <div className="p-8 border border-dashed rounded-md flex flex-col items-center justify-center">
-                    <ImagePlus className="h-10 w-10 mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground">No media uploaded yet</p>
+                  <div className="p-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center">
+                    <ImagePlus className="h-12 w-12 mb-3 text-muted-foreground" />
+                    <p className="text-lg font-medium text-muted-foreground mb-1">No media uploaded yet</p>
+                    <p className="text-sm text-muted-foreground">Upload images and videos to showcase your property</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {uploadedMedia.map((media, index) => (
-                      <div key={index} className="relative border rounded-md overflow-hidden">
-                        {media.mediaType === 'image' ? (
-                          <img
-                            src={media.cloudinaryUrl}
-                            alt={`Property image ${index + 1}`}
-                            className="w-full h-40 object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-40 bg-black flex items-center justify-center">
-                            <FilmIcon className="h-10 w-10 text-white" />
+                  <div>
+                    <div className="mb-4 text-sm text-muted-foreground">
+                      {uploadedMedia.length} file(s) uploaded • All media files branded with SOUTH DELHI REALTY watermark
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {uploadedMedia.map((media, index) => (
+                        <div key={index} className="relative border rounded-lg overflow-hidden group">
+                          {media.mediaType === 'image' ? (
+                            <div className="relative">
+                              <img
+                                src={media.cloudinaryUrl}
+                                alt={`Property image ${index + 1}`}
+                                className="w-full h-40 object-cover"
+                              />
+                              <div className="absolute bottom-1 right-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                                <svg className="h-3 w-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" clipRule="evenodd" />
+                                </svg>
+                                Watermarked
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-40 bg-black flex items-center justify-center relative">
+                              <FilmIcon className="h-12 w-12 text-white" />
+                              {media.processingStatus === 'async' ? (
+                                <div className="absolute bottom-1 right-1 bg-yellow-600 text-white text-xs px-2 py-1 rounded flex items-center">
+                                  <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-1"></div>
+                                  Processing...
+                                </div>
+                              ) : (
+                                <div className="absolute bottom-1 right-1 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                                  <svg className="h-3 w-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h3a1 1 0 011 1v3a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" clipRule="evenodd" />
+                                  </svg>
+                                  Watermarked Video
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="p-3 bg-white border-t">
+                            <div className="flex justify-between items-center mb-2">
+                              <button
+                                type="button"
+                                onClick={() => setFeaturedMedia(index)}
+                                className={`text-xs px-2 py-1 rounded-full transition-colors ${
+                                  media.isFeatured 
+                                    ? 'bg-primary text-white font-medium' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                {media.isFeatured ? '⭐ Featured' : 'Set featured'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeMedia(index)}
+                                className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            {media.fileName && (
+                              <p className="text-xs text-muted-foreground truncate" title={media.fileName}>
+                                {media.fileName}
+                              </p>
+                            )}
+                            {media.processingStatus === 'async' && media.processingMessage && (
+                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                <p className="font-medium">⏳ Background Processing</p>
+                                <p>{media.processingMessage}</p>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="p-2 bg-white border-t flex justify-between items-center">
-                          <button
-                            type="button"
-                            onClick={() => setFeaturedMedia(index)}
-                            className={`text-xs ${media.isFeatured ? 'text-primary font-medium' : 'text-muted-foreground'}`}
-                          >
-                            {media.isFeatured ? 'Featured' : 'Set as featured'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeMedia(index)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

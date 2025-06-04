@@ -1,10 +1,12 @@
 import { v2 as cloudinaryV2 } from 'cloudinary';
+import { eq } from "drizzle-orm";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from 'multer';
-import { insertInquirySchema, insertNearbyFacilitySchema, insertPropertySchema } from "../shared/schema";
+import { insertInquirySchema, insertNearbyFacilitySchema, insertPropertySchema, propertyMedia } from "../shared/schema";
 import authRouter from "./auth";
-import { sendInquiryNotification } from "./email";
+import { db } from "./db";
+import { sendInquiryNotification, sendUserConfirmationEmail } from "./email";
 import { storage } from "./storage";
 
 // Initialize cloudinary and create upload middleware
@@ -32,7 +34,7 @@ interface CloudinaryFile extends Express.Multer.File {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 100 * 1024 * 1024 // 100MB - increased for video uploads
   }
 });
 
@@ -387,6 +389,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await sendInquiryNotification(inquiry, property);
       console.log('✅ Email notification processed');
       
+      // Send confirmation email to the user
+      await sendUserConfirmationEmail(inquiry, property);
+      console.log('✅ User confirmation email processed');
+      
       const response = inquiry;
       console.log('✅ Inquiry submission completed:', response);
       res.status(201).json(response);
@@ -545,13 +551,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Property Media Management - simplified approach using unsigned upload
+  // Property Media Management - original upload endpoint (for backward compatibility)
   app.post("/api/admin/media/upload", ensureAuthenticated, checkCloudinaryConfig, async (req: any, res: any) => {
     try {
       console.log("📨 Media upload request received");
       console.log("📋 Request body keys:", Object.keys(req.body));
-      console.log("📋 Request body:", JSON.stringify(req.body, null, 2));
-      console.log("📋 Content-Type:", req.headers['content-type']);
       
       if (!req.body.fileData) {
         console.log("❌ No fileData found in request body");
@@ -564,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📊 File data length: ${fileData ? fileData.length : 'undefined'} characters`);
       
       const uploadResponse = await cloudinary.uploader.upload(fileData, {
-        folder: "south-delhi-real-estate",
+        folder: "south-delhi-realty",
         public_id: `property-${propertyId}-${Date.now()}`,
         resource_type: "auto"
       });
@@ -603,6 +607,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Property Media Management - watermarked upload endpoint
+  app.post("/api/admin/media/upload-watermarked", ensureAuthenticated, checkCloudinaryConfig, async (req: any, res: any) => {
+    try {
+      console.log("📨 Watermarked media upload request received");
+      console.log("📋 Request body keys:", Object.keys(req.body));
+      
+      if (!req.body.fileData) {
+        console.log("❌ No fileData found in request body");
+        return res.status(400).json({ error: "No file data provided" });
+      }
+
+      const { fileData, fileName, propertyId, applyWatermark = true } = req.body;
+      
+      // Check file size (base64 data size estimation)
+      const fileSizeBytes = Math.round((fileData.length * 3) / 4); // Base64 to bytes conversion
+      const fileSizeMB = fileSizeBytes / (1024 * 1024);
+      
+      console.log(`📤 Uploading file: ${fileName} for property ${propertyId}`);
+      console.log(`📊 File size: ${fileSizeMB.toFixed(2)}MB`);
+      console.log(`🎨 Watermark enabled: ${applyWatermark}`);
+      
+      // File size limit check (100MB)
+      const maxSizeMB = 100;
+      if (fileSizeMB > maxSizeMB) {
+        console.log(`❌ File too large: ${fileSizeMB.toFixed(2)}MB > ${maxSizeMB}MB`);
+        return res.status(413).json({ 
+          error: "File too large",
+          details: `File size (${fileSizeMB.toFixed(2)}MB) exceeds maximum limit of ${maxSizeMB}MB. Please compress your video or choose a smaller file.`,
+          maxSizeMB,
+          actualSizeMB: Math.round(fileSizeMB * 100) / 100
+        });
+      }
+      
+      // Determine if it's an image or video
+      const isImage = fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i);
+      const isVideo = fileName.toLowerCase().match(/\.(mp4|mov|avi|mkv|webm)$/i);
+      
+      // Validate file type
+      if (!isImage && !isVideo) {
+        console.log(`❌ Unsupported file type: ${fileName}`);
+        return res.status(400).json({ 
+          error: "Unsupported file type",
+          details: "Please upload images (JPG, PNG, GIF, WebP) or videos (MP4, MOV, AVI, MKV, WebM)",
+          fileName
+        });
+      }
+      
+      let uploadOptions: any = {
+        folder: "south-delhi-realty",
+        public_id: `property-${propertyId}-${Date.now()}`,
+        resource_type: "auto"
+      };
+      
+      // Apply watermark for both images and videos
+      if ((isImage || isVideo) && applyWatermark) {
+        if (isImage) {
+          console.log("🎨 Applying SOUTH DELHI REALTY watermark to image");
+          uploadOptions.transformation = [
+            {
+              overlay: {
+                font_family: "Arial",
+                font_size: 40,
+                font_weight: "bold",
+                text: "SOUTH DELHI REALTY"
+              },
+              color: "white",
+              gravity: "south_east",
+              x: 20,
+              y: 20,
+              opacity: 80
+            },
+            {
+              overlay: {
+                font_family: "Arial", 
+                font_size: 40,
+                font_weight: "bold",
+                text: "SOUTH DELHI REALTY"
+              },
+              color: "black",
+              gravity: "south_east",
+              x: 22,
+              y: 22,
+              opacity: 30
+            },
+            {
+              quality: "auto:good",
+              fetch_format: "auto"
+            }
+          ];
+        } else if (isVideo) {
+          console.log("🎨 Applying SOUTH DELHI REALTY watermark to video");
+          
+          // For large videos (>20MB), use eager transformations with async processing
+          const isLargeVideo = fileSizeMB > 20;
+          
+          const videoTransformation = [
+            {
+              overlay: {
+                font_family: "Arial",
+                font_size: 60, // Larger font for videos
+                font_weight: "bold",
+                text: "SOUTH DELHI REALTY"
+              },
+              color: "white",
+              gravity: "south_east",
+              x: 30,
+              y: 30,
+              opacity: 90
+            },
+            {
+              overlay: {
+                font_family: "Arial", 
+                font_size: 60,
+                font_weight: "bold",
+                text: "SOUTH DELHI REALTY"
+              },
+              color: "black",
+              gravity: "south_east",
+              x: 32,
+              y: 32,
+              opacity: 40
+            },
+            {
+              quality: "auto:good"
+            }
+          ];
+          
+          if (isLargeVideo) {
+            console.log(`🎬 Large video detected (${fileSizeMB.toFixed(2)}MB), using async processing`);
+            // Use eager transformations for large videos
+            uploadOptions.eager = videoTransformation;
+            uploadOptions.eager_async = true;
+            uploadOptions.eager_notification_url = `${req.protocol}://${req.get('host')}/api/webhooks/cloudinary`;
+          } else {
+            console.log(`🎬 Small video (${fileSizeMB.toFixed(2)}MB), using sync processing`);
+            uploadOptions.transformation = videoTransformation;
+          }
+        }
+      }
+      
+      const uploadResponse = await cloudinary.uploader.upload(fileData, uploadOptions);
+
+      console.log('✅ Cloudinary upload successful:', uploadResponse.public_id);
+      console.log('🎨 Watermark applied:', (isImage || isVideo) && applyWatermark ? 'Yes' : 'No');
+      console.log('📄 Media type:', uploadResponse.resource_type);
+
+      // Check if this is a large video with async processing
+      const isLargeVideo = isVideo && fileSizeMB > 20 && applyWatermark;
+      
+      // Only save to database if this is for an existing property (not "temp")
+      let newMedia = null;
+      if (propertyId !== 'temp' && !isNaN(parseInt(propertyId))) {
+        const mediaData = {
+          propertyId: parseInt(propertyId),
+          mediaType: uploadResponse.resource_type === 'video' ? 'video' as const : 'image' as const,
+          cloudinaryId: uploadResponse.public_id,
+          cloudinaryUrl: uploadResponse.secure_url,
+          isFeatured: false,
+          orderIndex: 0
+        };
+
+        newMedia = await storage.createPropertyMedia(mediaData);
+      }
+      
+      const response = {
+        success: true,
+        media: newMedia,
+        cloudinaryId: uploadResponse.public_id,
+        cloudinaryUrl: uploadResponse.secure_url,
+        mediaType: uploadResponse.resource_type === 'video' ? 'video' : 'image',
+        watermarkApplied: (isImage || isVideo) && applyWatermark,
+        fileSizeMB: Math.round(fileSizeMB * 100) / 100,
+        // Add processing status for large videos
+        ...(isLargeVideo && {
+          processingStatus: 'async',
+          message: 'Video uploaded successfully! Watermarking is being processed in the background.',
+          note: 'The watermarked version will be available shortly. You can continue using the video.'
+        })
+      };
+      
+      console.log('📤 Upload response:', { 
+        success: response.success, 
+        mediaType: response.mediaType, 
+        watermarkApplied: response.watermarkApplied,
+        processingStatus: response.processingStatus || 'complete'
+      });
+      
+      res.json(response);
+
+    } catch (error) {
+      console.error('❌ Watermarked media upload error:', error);
+      
+      // Handle specific errors
+      if (error instanceof Error) {
+        // Cloudinary specific errors
+        if (error.message.includes('File size too large')) {
+          return res.status(413).json({ 
+            error: "File too large for Cloudinary",
+            details: "The file exceeds Cloudinary's upload limits. Please compress your video or use a smaller file.",
+            suggestion: "Try reducing video resolution or duration"
+          });
+        }
+        
+        // Network/timeout errors
+        if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+          return res.status(408).json({ 
+            error: "Upload timeout",
+            details: "The file upload took too long. This often happens with large video files.",
+            suggestion: "Try compressing the video or check your internet connection"
+          });
+        }
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to upload media with watermark",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Multiple file upload endpoint
   app.post("/api/admin/media/upload-multiple", ensureAuthenticated, checkCloudinaryConfig, upload.array('files', 10), (req: any, res: any) => {
     try {
@@ -735,13 +959,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ID" });
       }
       
-      // Get media details first
-      const media = await storage.getPropertyMedia(id);
-      const mediaItem = media.find(item => item.id === id);
+      console.log(`🗑️ DELETE request for media ID: ${id}`);
       
-      if (!mediaItem) {
+      // Get media details first by querying the media table directly
+      const mediaItems = await db.select().from(propertyMedia).where(eq(propertyMedia.id, id));
+      
+      if (mediaItems.length === 0) {
+        console.log(`❌ Media ID ${id} not found in database`);
         return res.status(404).json({ message: "Media not found" });
       }
+      
+      const mediaItem = mediaItems[0];
+      console.log(`✅ Found media: ${mediaItem.cloudinaryId}`);
       
       // Delete from database
       const deleted = await storage.deletePropertyMedia(id);
@@ -750,17 +979,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Delete from Cloudinary
         try {
           const resourceType = mediaItem.mediaType === 'video' ? 'video' : 'image';
+          console.log(`🗑️ Deleting from Cloudinary: ${mediaItem.cloudinaryId} (${resourceType})`);
           await deleteFromCloudinary(mediaItem.cloudinaryId, resourceType);
+          console.log(`✅ Successfully deleted from Cloudinary`);
         } catch (cloudinaryErr) {
-          console.error('Error deleting from Cloudinary:', cloudinaryErr);
+          console.error('❌ Error deleting from Cloudinary:', cloudinaryErr);
           // Still return success since DB record is deleted
         }
         
+        console.log(`✅ Media ${id} deleted successfully`);
         res.json({ message: "Media deleted successfully" });
       } else {
+        console.log(`❌ Failed to delete media ${id} from database`);
         res.status(404).json({ message: "Media not found" });
       }
     } catch (error) {
+      console.error('❌ Error in DELETE media endpoint:', error);
       next(error);
     }
   });
@@ -1000,6 +1234,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('❌ Test email send error:', error);
       next(error);
+    }
+  });
+
+  // Cloudinary webhook for async transformation notifications
+  app.post("/api/webhooks/cloudinary", async (req: any, res: any) => {
+    try {
+      console.log("🔗 Cloudinary webhook received");
+      console.log("📋 Webhook data:", JSON.stringify(req.body, null, 2));
+      
+      // Verify the webhook (optional - you can add signature verification here if needed)
+      const { notification_type, public_id, eager } = req.body;
+      
+      if (notification_type === 'eager' && public_id) {
+        console.log(`✅ Async transformation completed for: ${public_id}`);
+        
+        if (eager && eager.length > 0) {
+          console.log(`🎬 Video watermarking completed successfully`);
+          console.log(`📄 Eager transformations: ${eager.length}`);
+        }
+      }
+      
+      // Respond to Cloudinary to acknowledge receipt
+      res.status(200).json({ success: true, message: "Webhook received" });
+    } catch (error) {
+      console.error("❌ Error processing Cloudinary webhook:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
     }
   });
 
