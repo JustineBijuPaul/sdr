@@ -80,8 +80,15 @@ export default function Sidebar() {
         {/* Top Bar with Logo and Toggle */}
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center">
-            <Link href="/admin">
-              <h1 className="text-xl font-bold cursor-pointer hover:text-primary transition-colors">South Delhi Realty</h1>
+            <Link href="/admin" className="flex items-center space-x-2">
+              <img 
+                src="/sdrlogo.png" 
+                alt="South Delhi Realty" 
+                className="h-8 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+              />
+              <span className="text-primary font-bold text-lg hidden sm:block">
+                SOUTH DELHI REALTY
+              </span>
             </Link>
           </div>
           
@@ -157,11 +164,18 @@ export default function Sidebar() {
       <div className="hidden lg:block min-w-[100px] border-r h-screen bg-white fixed">
         <div className="h-full flex flex-col w-64">
           <div className="p-6 border-b">
-            <Link href="/admin">
-              <h2 className="text-xl font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity">SD Realty Admin</h2>
+            <Link href="/admin" className="flex items-center space-x-2">
+              <img 
+                src="/sdrlogo.png" 
+                alt="South Delhi Realty" 
+                className="h-8 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+              />
+              <span className="text-primary font-bold text-lg hidden sm:block">
+                SOUTH DELHI REALTY
+              </span>
             </Link>
             {user && (
-              <p className="text-xs mt-1 text-muted-foreground">
+              <p className="text-xs mt-2 text-muted-foreground">
                 Logged in as: <span className="font-medium">{user.username}</span>
                 {isSuperAdmin && <span className="ml-1 text-xs text-purple-600">(Super Admin)</span>}
               </p>

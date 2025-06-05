@@ -15,9 +15,10 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Loader2, Lock, User } from "lucide-react";
+import { Chrome, Loader2, Lock, User } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation } from "wouter";
@@ -56,6 +57,11 @@ export default function AuthPage() {
     loginMutation.mutate(values);
   }
 
+  // Handle Google OAuth login
+  function handleGoogleLogin() {
+    window.location.href = '/api/auth/google';
+  }
+
   // Show loading if login is in progress
   if (loginMutation.isPending) {
     return (
@@ -75,16 +81,40 @@ export default function AuthPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-center mb-4">
-              <Building2 className="h-10 w-10 text-primary" />
+              <img 
+                src="/sdrlogo.png" 
+                alt="South Delhi Realty" 
+                className="h-16 w-auto"
+              />
             </div>
-            <CardTitle className="text-2xl text-center">South Delhi Realty</CardTitle>
+            <CardTitle className="text-2xl text-center">Admin Portal</CardTitle>
             <CardDescription className="text-center">
-              Admin Portal - Enter your credentials to access the dashboard
+              Enter your credentials to access the dashboard
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Google OAuth Button */}
+            <Button 
+              onClick={handleGoogleLogin}
+              variant="outline" 
+              className="w-full mb-4"
+              type="button"
+            >
+              <Chrome className="mr-2 h-4 w-4" />
+              Continue with Google
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
             <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4 mt-4">
                 <FormField
                   control={loginForm.control}
                   name="username"
@@ -129,7 +159,7 @@ export default function AuthPage() {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={loginMutation.isPending} // Change isLoading to isPending
+                  disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? "Signing in..." : "Sign In"}
                 </Button>

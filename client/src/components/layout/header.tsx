@@ -18,8 +18,15 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <span className="text-primary font-bold text-2xl">South Delhi Realty</span>
+            <Link href="/" className="flex items-center space-x-3">
+              <img 
+                src="/sdrlogo.png" 
+                alt="South Delhi Realty" 
+                className="h-10 w-auto"
+              />
+              <span className="text-primary font-bold text-xl hidden sm:block">
+                SOUTH DELHI REALTY
+              </span>
             </Link>
           </div>
           

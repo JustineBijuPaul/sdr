@@ -1,5 +1,6 @@
 import express from 'express';
 import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as LocalStrategy } from 'passport-local';
 // Replace bcrypt with crypto for a pure JavaScript solution
 import * as crypto from 'crypto';
@@ -94,6 +95,67 @@ passport.use(
   )
 );
 
+// Set up Google OAuth strategy
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL!,
+    },
+    async (accessToken: string, refreshToken: string, profile: any, done: any) => {
+      try {
+        // Check if user already exists with this Google ID
+        let user = await storage.findUserByGoogleId(profile.id);
+        
+        if (user) {
+          // User exists, return user data
+          const userWithoutPassword: AuthUser = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role
+          };
+          return done(null, userWithoutPassword);
+        }
+
+        // Check if user exists with this email
+        const emailUser = await storage.findUserByEmail(profile.emails?.[0]?.value);
+        if (emailUser) {
+          // Link Google account to existing user
+          await storage.linkGoogleAccount(emailUser.id, profile.id);
+          const userWithoutPassword: AuthUser = {
+            id: emailUser.id,
+            username: emailUser.username,
+            email: emailUser.email,
+            role: emailUser.role
+          };
+          return done(null, userWithoutPassword);
+        }
+
+        // Create new user
+        const newUser = await storage.createGoogleUser({
+          googleId: profile.id,
+          username: profile.displayName || profile.emails?.[0]?.value?.split('@')[0] || 'user',
+          email: profile.emails?.[0]?.value,
+          role: 'user'
+        });
+
+        const userWithoutPassword: AuthUser = {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role
+        };
+
+        return done(null, userWithoutPassword);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
+
 // Passport session setup
 passport.serializeUser((user: any, done: (err: any, id?: any) => void) => {
   done(null, user.id);
@@ -167,5 +229,18 @@ router.get('/status', (req, res) => {
     res.status(401).json({ message: 'Not authenticated' });
   }
 });
+
+// Google OAuth routes
+router.get('/google', 
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: '/auth?error=google_auth_failed' }),
+  (req, res) => {
+    // Successful authentication, redirect to admin dashboard
+    res.redirect('/admin');
+  }
+);
 
 export default router;

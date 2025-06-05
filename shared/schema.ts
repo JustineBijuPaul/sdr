@@ -22,8 +22,11 @@ export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   username: text("username").notNull(),
   email: text("email").notNull(),
-  password: text("password").notNull(),
+  password: text("password"),
   role: text("role").notNull().default("admin"),
+  googleId: text("google_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 // Properties table

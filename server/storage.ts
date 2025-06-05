@@ -30,9 +30,13 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   findUserById(id: number): Promise<User | undefined>;
   findUserByUsername(username: string): Promise<User | undefined>;
+  findUserByEmail(email: string): Promise<User | undefined>;
+  findUserByGoogleId(googleId: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createGoogleUser(userData: { googleId: string; username: string; email: string; role: string }): Promise<User>;
+  linkGoogleAccount(userId: number, googleId: string): Promise<void>;
   updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
   
@@ -122,6 +126,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async findUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async findUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user;
+  }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
@@ -144,7 +158,25 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.id, Number(insertId)));
     return user;
   }
-  
+
+  async createGoogleUser(userData: { googleId: string; username: string; email: string; role: string }): Promise<User> {
+    const insertUser = {
+      email: userData.email,
+      username: userData.username,
+      password: '',
+      role: userData.role,
+      googleId: userData.googleId
+    };
+    const result = await db.insert(users).values(insertUser);
+    const insertId = result[0].insertId;
+    const [user] = await db.select().from(users).where(eq(users.id, Number(insertId)));
+    return user;
+  }
+
+  async linkGoogleAccount(userId: number, googleId: string): Promise<void> {
+    await db.update(users).set({ googleId }).where(eq(users.id, userId));
+  }
+
   async deleteUser(id: number): Promise<boolean> {
     try {
       // First check if the user exists
