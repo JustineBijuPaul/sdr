@@ -135,7 +135,8 @@ export default function InquiriesTable() {
       await apiRequest("DELETE", `/api/admin/inquiries/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/inquiries'] });
+      // Invalidate the correct query key to refresh the inquiries list
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
       toast({
         title: "Inquiry deleted",
         description: "Inquiry has been deleted successfully",
@@ -159,7 +160,8 @@ export default function InquiriesTable() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/inquiries'] });
+      // Invalidate the correct query key to refresh the inquiries list
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
       toast({
         title: "Status updated",
         description: "Inquiry status has been updated successfully",

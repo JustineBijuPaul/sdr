@@ -74,7 +74,7 @@ passport.use(
         }
 
         // Verify password using the custom comparePassword function instead of bcrypt
-        const isValid = await comparePassword(password, user.password);
+        const isValid = await comparePassword(password, user.password || '');
         if (!isValid) {
           return done(null, false, { message: 'Incorrect password.' });
         }

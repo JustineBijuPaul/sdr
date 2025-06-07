@@ -11,6 +11,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import passport from 'passport';
 import { registerRoutes } from "./routes";
+import sitemapRoutes from './sitemap';
 import { storage } from './storage';
 import { createLogger } from './utils/logger';
 import { log, serveStatic, setupVite } from "./vite";
@@ -101,21 +102,28 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // CORS configuration with proper origins
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5000',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5000'
-];
+const nodeEnv = (process.env.NODE_ENV || 'development').trim();
+const allowedOrigins = nodeEnv === 'production' 
+  ? (process.env.ALLOWED_ORIGINS || 'http://localhost:5000,http://127.0.0.1:5000').split(',').filter(Boolean)
+  : [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5000'
+    ];
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (same-origin requests, mobile apps, curl requests)
+    // This is safe when the server is serving both frontend and API
+    if (!origin) {
+      return callback(null, true);
+    }
     
-    if (allowedOrigins.includes(origin)) {
+    if (origin && allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      logger.warn(`CORS blocked request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'), false);
     }
   },
@@ -127,17 +135,27 @@ const corsOptions: cors.CorsOptions = {
 app.use(cors(corsOptions));
 
 // Session configuration with production-ready settings
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'your-secret-key-change-in-production') {
+  if (process.env.NODE_ENV === 'production') {
+    logger.error('SESSION_SECRET must be set in production!');
+    process.exit(1);
+  } else {
+    logger.warn('Using default SESSION_SECRET in development');
+  }
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
   store: storage.sessionStore,
   name: 'southdelhi.session', // Change default session name
   cookie: {
-    secure: false, // Set to false for localhost testing even in production
+    secure: process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax' // Use 'lax' for better compatibility
+    // Use 'lax' for localhost in production mode to allow OAuth flows
+    sameSite: (process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true') ? 'strict' : 'lax'
   }
 }));
 
@@ -215,6 +233,9 @@ app.use((req: any, res: any, next: any) => {
 
   next();
 });
+
+// SEO routes (sitemap and robots.txt) - before API routes
+app.use('/', sitemapRoutes);
 
 (async () => {
   try {

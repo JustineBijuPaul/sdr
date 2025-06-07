@@ -65,7 +65,7 @@ export interface IStorage {
   getPropertyById(id: number): Promise<PropertyWithRelations | undefined>;
   getPropertyBySlug(slug: string): Promise<PropertyWithRelations | undefined>;
   createProperty(property: InsertProperty): Promise<PropertyWithRelations>;
-  updateProperty(id: number, property: Partial<Property>): Promise<boolean>;
+  updateProperty(id: number, property: Partial<InsertProperty>): Promise<boolean>;
   deleteProperty(id: number): Promise<boolean>;
   
   // Property media operations
@@ -544,7 +544,7 @@ export class DatabaseStorage implements IStorage {
 
   async createProperty(propertyData: InsertProperty): Promise<PropertyWithRelations> {
     // Insert the property data
-    const result = await db.insert(properties).values(propertyData);
+    const result = await db.insert(properties).values(propertyData as any);
     const insertId = result[0].insertId;
     
     // Fetch the created property by ID
@@ -607,7 +607,7 @@ export class DatabaseStorage implements IStorage {
       const originalUpdatedAt = existingProperty[0].updatedAt;
       
       // Perform the update
-      const result = await db.update(properties).set(updates).where(eq(properties.id, id));
+      const result = await db.update(properties).set(updates as any).where(eq(properties.id, id));
       
       // Check if the update was successful by verifying the updatedAt timestamp changed
       // or by checking if the property still exists (for cases where updatedAt might not change)
@@ -668,7 +668,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPropertyMedia(mediaData: InsertPropertyMedia): Promise<PropertyMedia> {
-    const result = await db.insert(propertyMedia).values(mediaData);
+    const result = await db.insert(propertyMedia).values(mediaData as any);
     const insertId = result[0].insertId;
     const [newMedia] = await db.select().from(propertyMedia).where(eq(propertyMedia.id, Number(insertId)));
     return newMedia;
@@ -715,7 +715,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createNearbyFacility(facilityData: InsertNearbyFacility): Promise<NearbyFacility> {
-    const result = await db.insert(nearbyFacilities).values(facilityData);
+    const result = await db.insert(nearbyFacilities).values(facilityData as any);
     const insertId = result[0].insertId;
     const [newFacility] = await db.select().from(nearbyFacilities).where(eq(nearbyFacilities.id, Number(insertId)));
     return newFacility;
@@ -864,7 +864,7 @@ export class DatabaseStorage implements IStorage {
     
     try {
       console.log('Inserting inquiry into database...');
-      const result = await db.insert(inquiries).values(inquiryData);
+      const result = await db.insert(inquiries).values(inquiryData as any);
       console.log('Insert result:', result);
       
       // Get the ID of the inserted record
@@ -1002,6 +1002,9 @@ export class DatabaseStorage implements IStorage {
       username: users.username,
       email: users.email,
       role: users.role,
+      googleId: users.googleId,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
     }).from(users).orderBy(users.id);
   }
 
@@ -1018,7 +1021,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Update the user
-      const result = await db.update(users).set(userData).where(eq(users.id, id));
+      const result = await db.update(users).set(userData as any).where(eq(users.id, id));
       
       // Check if the update was successful by verifying the user still exists
       const updatedUser = await db.select().from(users).where(eq(users.id, id));

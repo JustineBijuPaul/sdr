@@ -1,6 +1,7 @@
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
 import PropertyGallery from "@/components/properties/property-gallery";
+import SEOHead, { generatePropertyStructuredData } from "@/components/seo/seo-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -193,308 +194,352 @@ export default function PropertyDetailPage() {
     return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  // Generate SEO data for property
+  const generateSEOData = () => {
+    if (!property) return {};
+
+    const propertyTitle = `${property.title} in South Delhi`;
+    const propertyDescription = `${property.description?.substring(0, 160)}... ${formatPrice()} | ${property.bedrooms} BHK | ${getAreaWithUnit()} | ${property.location || 'South Delhi'}`;
+    const propertyImage = property.media?.[0]?.cloudinaryUrl || '/sdrlogo.png';
+    const propertyUrl = `https://southdelhirealty.com/property/${property.slug}`;
+    
+    const keywords = [
+      `${property.bedrooms} bhk ${property.type} south delhi`,
+      `${property.location || ''} properties`,
+      `${property.status} ${property.type}`,
+      property.status === 'sale' ? 'buy property south delhi' : 'rent property south delhi',
+      'south delhi real estate',
+      'premium properties south delhi'
+    ].filter(Boolean).join(', ');
+
+    return {
+      title: propertyTitle,
+      description: propertyDescription,
+      keywords,
+      image: propertyImage,
+      url: propertyUrl,
+      structuredData: generatePropertyStructuredData(property)
+    };
+  };
+
+  const seoData = generateSEOData();
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <>
+      {property && (
+        <SEOHead
+          title={seoData.title}
+          description={seoData.description}
+          keywords={seoData.keywords}
+          image={seoData.image}
+          url={seoData.url}
+          type="article"
+          structuredData={seoData.structuredData}
+        />
+      )}
       
-      <main className="flex-grow py-8">
-        <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
-          <div className="text-sm mb-4 text-muted-foreground">
-            <a href="/" className="hover:text-primary">Home</a> {" / "}
-            <a href="/properties" className="hover:text-primary">Properties</a> {" / "}
-            <span>{property.title}</span>
-          </div>
-          
-          {/* Property Gallery */}
-          <PropertyGallery media={property.media || []} />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Property Details */}
-            <div className="lg:col-span-2">
-              <div className="mb-6">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h1 className="text-3xl font-bold mb-2">{property.title}</h1>
-                    <p className="text-muted-foreground flex items-center">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      {property.contactDetails.split(',')[0]}
-                    </p>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        
+        <main className="flex-grow py-8">
+          <div className="container mx-auto px-4">
+            {/* Breadcrumb */}
+            <div className="text-sm mb-4 text-muted-foreground">
+              <a href="/" className="hover:text-primary">Home</a> {" / "}
+              <a href="/properties" className="hover:text-primary">Properties</a> {" / "}
+              <span>{property.title}</span>
+            </div>
+            
+            {/* Property Gallery */}
+            <PropertyGallery media={property.media || []} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Property Details */}
+              <div className="lg:col-span-2">
+                <div className="mb-6">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-2">{property.title}</h1>
+                      <p className="text-muted-foreground flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        {property.contactDetails.split(',')[0]}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={statusClass}>{statusLabel}</Badge>
+                      <p className="text-2xl font-bold text-primary mt-2">{formatPrice()}</p>
+                      {property.priceNegotiable && (
+                        <span className="text-sm text-muted-foreground">Negotiable</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge className={statusClass}>{statusLabel}</Badge>
-                    <p className="text-2xl font-bold text-primary mt-2">{formatPrice()}</p>
-                    {property.priceNegotiable && (
-                      <span className="text-sm text-muted-foreground">Negotiable</span>
+                  
+                  <div className="flex flex-wrap gap-4 my-6">
+                    {property.bedrooms && (
+                      <div className="flex items-center">
+                        <Bed className="h-5 w-5 mr-2 text-muted-foreground" />
+                        <span>{property.bedrooms} Bedrooms</span>
+                      </div>
+                    )}
+                    {property.bathrooms && (
+                      <div className="flex items-center">
+                        <Bath className="h-5 w-5 mr-2 text-muted-foreground" />
+                        <span>{property.bathrooms} Bathrooms</span>
+                      </div>
+                    )}
+                    <div className="flex items-center">
+                      <ArrowLeftRight className="h-5 w-5 mr-2 text-muted-foreground" />
+                      <span>{getAreaWithUnit()}</span>
+                    </div>
+                    {property.furnishedStatus && (
+                      <div className="flex items-center">
+                        <CalendarIcon className="h-5 w-5 mr-2 text-muted-foreground" />
+                        <span>
+                          {property.furnishedStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
                 
+                <Separator className="my-6" />
+                
+                {/* Property Features */}
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold mb-4">Property Details</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Property Type</span>
+                      <span className="font-medium">{formatPropertyType(property.propertyType)}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Category</span>
+                      <span className="font-medium">
+                        {property.category === 'residential' ? 'Residential' : 'Commercial'}
+                      </span>
+                    </div>
+                    {property.subType && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Sub Type</span>
+                        <span className="font-medium">{property.subType.toUpperCase()}</span>
+                      </div>
+                    )}
+                    {property.portion && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Portion</span>
+                        <span className="font-medium">
+                          {property.portion.replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Area</span>
+                      <span className="font-medium">{getAreaWithUnit()}</span>
+                    </div>
+                    {property.bedrooms && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Bedrooms</span>
+                        <span className="font-medium">{property.bedrooms}</span>
+                      </div>
+                    )}
+                    {property.bathrooms && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Bathrooms</span>
+                        <span className="font-medium">{property.bathrooms}</span>
+                      </div>
+                    )}
+                    {property.balconies && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Balconies</span>
+                        <span className="font-medium">{property.balconies}</span>
+                      </div>
+                    )}
+                    {property.facing && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Facing</span>
+                        <span className="font-medium">
+                          {property.facing.replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                    )}
+                    {property.parking && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Parking</span>
+                        <span className="font-medium">
+                          {property.parking.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                    )}
+                    {property.age && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Age of Property</span>
+                        <span className="font-medium">{property.age} years</span>
+                      </div>
+                    )}
+                    {property.furnishedStatus && (
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Furnished Status</span>
+                        <span className="font-medium">
+                          {property.furnishedStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Nearby Facilities */}
+                {property.facilities && property.facilities.length > 0 && (
+                  <>
+                    <Separator className="my-6" />
+                    <div className="mb-6">
+                      <h2 className="text-xl font-semibold mb-4">Nearby Facilities</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {property.facilities.map((facility, index) => (
+                          <div key={index} className="flex items-center justify-between py-2 border-b">
+                            <span className="text-muted-foreground">
+                              {facility.facilityType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                            <span className="font-medium">
+                              {facility.facilityName} ({facility.distance})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                <Separator className="my-6" />
+                
+                {/* Description */}
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold mb-4">Description</h2>
+                  <div className="prose max-w-none">
+                    <p className="whitespace-pre-line">{property.description}</p>
+                  </div>
+                </div>
+                
+                {/* Share & Favorite */}
                 <div className="flex flex-wrap gap-4 my-6">
-                  {property.bedrooms && (
-                    <div className="flex items-center">
-                      <Bed className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>{property.bedrooms} Bedrooms</span>
-                    </div>
-                  )}
-                  {property.bathrooms && (
-                    <div className="flex items-center">
-                      <Bath className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>{property.bathrooms} Bathrooms</span>
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <ArrowLeftRight className="h-5 w-5 mr-2 text-muted-foreground" />
-                    <span>{getAreaWithUnit()}</span>
-                  </div>
-                  {property.furnishedStatus && (
-                    <div className="flex items-center">
-                      <CalendarIcon className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>
-                        {property.furnishedStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                    </div>
-                  )}
+                  <Button variant="outline" onClick={() => navigator.clipboard.writeText(window.location.href)}>
+                    <Share2 className="h-4 w-4 mr-2" /> Share
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsFavorite(!isFavorite)}
+                    className={isFavorite ? "text-red-500 border-red-500" : ""}
+                  >
+                    <Heart 
+                      className={`h-4 w-4 mr-2 ${isFavorite ? "fill-red-500" : ""}`} 
+                    /> 
+                    {isFavorite ? "Saved" : "Add to Favorites"}
+                  </Button>
                 </div>
               </div>
               
-              <Separator className="my-6" />
-              
-              {/* Property Features */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">Property Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Property Type</span>
-                    <span className="font-medium">{formatPropertyType(property.propertyType)}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Category</span>
-                    <span className="font-medium">
-                      {property.category === 'residential' ? 'Residential' : 'Commercial'}
-                    </span>
-                  </div>
-                  {property.subType && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Sub Type</span>
-                      <span className="font-medium">{property.subType.toUpperCase()}</span>
-                    </div>
-                  )}
-                  {property.portion && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Portion</span>
-                      <span className="font-medium">
-                        {property.portion.replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Area</span>
-                    <span className="font-medium">{getAreaWithUnit()}</span>
-                  </div>
-                  {property.bedrooms && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Bedrooms</span>
-                      <span className="font-medium">{property.bedrooms}</span>
-                    </div>
-                  )}
-                  {property.bathrooms && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Bathrooms</span>
-                      <span className="font-medium">{property.bathrooms}</span>
-                    </div>
-                  )}
-                  {property.balconies && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Balconies</span>
-                      <span className="font-medium">{property.balconies}</span>
-                    </div>
-                  )}
-                  {property.facing && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Facing</span>
-                      <span className="font-medium">
-                        {property.facing.replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                    </div>
-                  )}
-                  {property.parking && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Parking</span>
-                      <span className="font-medium">
-                        {property.parking.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                    </div>
-                  )}
-                  {property.age && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Age of Property</span>
-                      <span className="font-medium">{property.age} years</span>
-                    </div>
-                  )}
-                  {property.furnishedStatus && (
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Furnished Status</span>
-                      <span className="font-medium">
-                        {property.furnishedStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Nearby Facilities */}
-              {property.facilities && property.facilities.length > 0 && (
-                <>
-                  <Separator className="my-6" />
-                  <div className="mb-6">
-                    <h2 className="text-xl font-semibold mb-4">Nearby Facilities</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {property.facilities.map((facility, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b">
-                          <span className="text-muted-foreground">
-                            {facility.facilityType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                          <span className="font-medium">
-                            {facility.facilityName} ({facility.distance})
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-              
-              <Separator className="my-6" />
-              
-              {/* Description */}
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">Description</h2>
-                <div className="prose max-w-none">
-                  <p className="whitespace-pre-line">{property.description}</p>
-                </div>
-              </div>
-              
-              {/* Share & Favorite */}
-              <div className="flex flex-wrap gap-4 my-6">
-                <Button variant="outline" onClick={() => navigator.clipboard.writeText(window.location.href)}>
-                  <Share2 className="h-4 w-4 mr-2" /> Share
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsFavorite(!isFavorite)}
-                  className={isFavorite ? "text-red-500 border-red-500" : ""}
-                >
-                  <Heart 
-                    className={`h-4 w-4 mr-2 ${isFavorite ? "fill-red-500" : ""}`} 
-                  /> 
-                  {isFavorite ? "Saved" : "Add to Favorites"}
-                </Button>
+              {/* Contact Form */}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Interested in this property?</CardTitle>
+                    <CardDescription>Fill out the form below and we'll get back to you soon.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Your name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Your email" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Your phone number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="message"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Message</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Your message" 
+                                  className="min-h-[120px]" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <Button 
+                          type="submit" 
+                          className="w-full" 
+                          disabled={submitInquiryMutation.isPending}
+                        >
+                          {submitInquiryMutation.isPending ? "Sending..." : "Send Inquiry"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </CardContent>
+                  <CardFooter className="flex-col items-stretch space-y-2 border-t pt-6">
+                    <p className="text-sm text-center text-muted-foreground mb-4">
+                      Or contact us directly:
+                    </p>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Phone className="h-4 w-4 mr-2" /> +91 98765 43210
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Mail className="h-4 w-4 mr-2" /> info@southdelhirealty.com
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
             </div>
             
-            {/* Contact Form */}
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Interested in this property?</CardTitle>
-                  <CardDescription>Fill out the form below and we'll get back to you soon.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your phone number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="message"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Message</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Your message" 
-                                className="min-h-[120px]" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={submitInquiryMutation.isPending}
-                      >
-                        {submitInquiryMutation.isPending ? "Sending..." : "Send Inquiry"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-                <CardFooter className="flex-col items-stretch space-y-2 border-t pt-6">
-                  <p className="text-sm text-center text-muted-foreground mb-4">
-                    Or contact us directly:
-                  </p>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Phone className="h-4 w-4 mr-2" /> +91 98765 43210
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Mail className="h-4 w-4 mr-2" /> info@southdelhirealty.com
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
+            {/* Similar Properties Section */}
+            {/* This would be implemented with a query to fetch similar properties */}
           </div>
-          
-          {/* Similar Properties Section */}
-          {/* This would be implemented with a query to fetch similar properties */}
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
+        </main>
+        
+        <Footer />
+      </div>
+    </>
   );
 }
 

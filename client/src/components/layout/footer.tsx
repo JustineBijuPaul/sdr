@@ -30,9 +30,9 @@ export default function Footer() {
               &copy; {new Date().getFullYear()} South Delhi Realty. All rights reserved.
             </p>
             <div className="flex space-x-6">
-              <a href="#" className="text-gray-400 hover:text-white transition">Terms</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Privacy</a>
-              <a href="#" className="text-gray-400 hover:text-white transition">Cookies</a>
+              <a href="/terms" className="text-gray-400 hover:text-white transition">Terms</a>
+              <a href="/privacy" className="text-gray-400 hover:text-white transition">Privacy</a>
+              <a href="/cookies" className="text-gray-400 hover:text-white transition">Cookies</a>
             </div>
           </div>
         </div>

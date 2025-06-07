@@ -1,46 +1,45 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Inquiry } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Eye } from "lucide-react";
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Inquiry } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Eye, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface InquiryTableProps {
   inquiries: Inquiry[];
@@ -58,7 +57,7 @@ export default function InquiryTable({ inquiries }: InquiryTableProps) {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/inquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
       toast({
         title: "Status updated",
         description: "The inquiry status has been updated successfully.",
@@ -79,7 +78,7 @@ export default function InquiryTable({ inquiries }: InquiryTableProps) {
       await apiRequest("DELETE", `/api/admin/inquiries/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/inquiries"] });
+      queryClient.invalidateQueries({ queryKey: ["inquiries"] });
       toast({
         title: "Inquiry deleted",
         description: "The inquiry has been deleted successfully.",

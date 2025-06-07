@@ -1,21 +1,23 @@
-import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { WebSocketProvider } from "@/components/layout/websocket-provider";
 import { Toaster } from "@/components/ui/toaster";
-import NotFound from "@/pages/not-found";
-import HomePage from "@/pages/home-page";
-import PropertiesPage from "@/pages/properties-page";
-import PropertyDetailPage from "@/pages/property-detail-page";
-import AuthPage from "@/pages/auth-page";
-import DashboardPage from "@/pages/admin/dashboard-page";
-import AdminPropertiesPage from "@/pages/admin/properties-page";
-import PropertyEditPage from "@/pages/admin/property-edit-page";
-import InquiriesPage from "@/pages/admin/inquiries-page";
-import StaffManagementPage from "@/pages/admin/staff-management-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
-import { WebSocketProvider } from "@/components/layout/websocket-provider";
-import { ReactNode } from 'react';
+import DashboardPage from "@/pages/admin/dashboard-page";
+import InquiriesPage from "@/pages/admin/inquiries-page";
+import AdminPropertiesPage from "@/pages/admin/properties-page";
+import PropertyEditPage from "@/pages/admin/property-edit-page";
+import StaffManagementPage from "@/pages/admin/staff-management-page";
+import AuthPage from "@/pages/auth-page";
+import CookiesPage from "@/pages/cookies-page";
+import HomePage from "@/pages/home-page";
+import NotFound from "@/pages/not-found";
+import PrivacyPage from "@/pages/privacy-page";
+import PropertiesPage from "@/pages/properties-page";
+import PropertyDetailPage from "@/pages/property-detail-page";
+import TermsPage from "@/pages/terms-page";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Redirect, Route, Switch } from "wouter";
+import { queryClient } from "./lib/queryClient";
 
 function Router() {
   return (
@@ -28,6 +30,11 @@ function Router() {
         {(params: { slug: string }) => <Redirect to={`/properties/${params.slug}`} />}
       </Route>
       <Route path="/auth" component={AuthPage} />
+      
+      {/* Legal Pages */}
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/cookies" component={CookiesPage} />
       
       {/* Admin Routes */}
       <ProtectedRoute path="/admin" component={DashboardPage} />

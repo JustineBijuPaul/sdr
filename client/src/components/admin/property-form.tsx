@@ -233,7 +233,7 @@ function MapLocationPicker({ defaultPosition = [28.5355, 77.2101], onPositionCha
           } else if (element.tags.amenity === 'hospital' || element.tags.healthcare) {
             type = 'hospital';
           } else if (element.tags.shop) {
-            type = 'shopping';
+            type = 'mall';  // Use 'mall' instead of 'shopping' to match schema enum
           } else if (element.tags.leisure || element.tags.amenity === 'park') {
             type = 'park';
           } else if (element.tags.amenity === 'restaurant' || element.tags.amenity === 'cafe') {
@@ -624,7 +624,7 @@ export default function PropertyForm({ propertyId }: PropertyFormProps) {
     switch (osmType) {
       case 'school': return 'school';
       case 'hospital': return 'hospital';
-      case 'shopping': return 'shopping';
+      case 'shopping': return 'mall';  // Map shopping to mall (valid enum value)
       case 'park': return 'park';
       case 'restaurant': return 'restaurant';
       case 'bank': return 'bank';
