@@ -194,10 +194,10 @@ export default function TermsPage() {
                 </p>
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <p className="mb-2"><strong>South Delhi Realty</strong></p>
-                  <p className="mb-2">M-15, Greater Kailash Part 1</p>
-                  <p className="mb-2">New Delhi, Delhi 110048</p>
+                  <p className="mb-2">Ward no. 1, Shop No.3, Desu Road, near Canara Bank</p>
+                  <p className="mb-2">New Delhi, Delhi 110030</p>
                   <p className="mb-2">Phone: +91-99112-48822</p>
-                  <p className="mb-2">Email: southdelhirealty@gmail.com</p>
+                  <p className="mb-2">Email: southdelhirealti@gmail.com</p>
                   <p>Website: https://southdelhirealty.com</p>
                 </div>
               </section>

@@ -1,19 +1,19 @@
 import { Button } from "@/components/ui/button";
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -22,13 +22,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertInquirySchema } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import {
-    Clock,
-    Facebook,
-    Instagram,
-    Mail,
-    MapPin,
-    MessageCircle,
-    Phone
+  Clock,
+  Facebook,
+  Instagram,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -229,7 +229,7 @@ export default function ContactSection() {
                   <div>
                     <h4 className="font-bold mb-1">Our Office</h4>
                     <p className="text-gray-600">
-                      M-15, Greater Kailash Part 1, New Delhi - 110048
+                      Ward no. 1, Shop No.3, Desu Road, near Canara Bank, New Delhi, Delhi 110030
                     </p>
                   </div>
                 </div>
@@ -251,10 +251,7 @@ export default function ContactSection() {
                   </div>
                   <div>
                     <h4 className="font-bold mb-1">Email</h4>
-                    <p className="text-gray-600">southdelhirealty@gmail.com</p>
-                    <p className="text-muted-foreground text-sm">
-                      southdelhirealtytech@gmail.com
-                    </p>
+                    <p className="text-gray-600">southdelhirealti@gmail.com</p>
                   </div>
                 </div>
 

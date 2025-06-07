@@ -525,7 +525,7 @@ export default function PropertyDetailPage() {
                       <Phone className="h-4 w-4 mr-2" /> +91 98765 43210
                     </Button>
                     <Button variant="outline" className="w-full justify-start">
-                      <Mail className="h-4 w-4 mr-2" /> info@southdelhirealty.com
+                      <Mail className="h-4 w-4 mr-2" /> southdelhirealti@gmail.com
                     </Button>
                   </CardFooter>
                 </Card>

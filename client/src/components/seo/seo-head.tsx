@@ -139,7 +139,7 @@ export const generatePropertyStructuredData = (property: any) => {
       "name": "South Delhi Realty",
       "url": "https://southdelhirealty.com",
       "telephone": "+91-99112-48822",
-      "email": "southdelhirealty@gmail.com",
+      "email": "southdelhirealti@gmail.com",
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "M-15, Greater Kailash Part 1",
@@ -181,7 +181,7 @@ export const generateOrganizationStructuredData = () => {
     "logo": "https://southdelhirealty.com/sdrlogo.png",
     "description": "Premier real estate agency specializing in South Delhi properties. Expert services for buying, selling, and renting residential and commercial properties.",
     "telephone": "+91-99112-48822",
-    "email": "southdelhirealty@gmail.com",
+    "email": "southdelhirealti@gmail.com",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "M-15, Greater Kailash Part 1",
