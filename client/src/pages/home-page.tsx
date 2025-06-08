@@ -29,7 +29,7 @@ export default function HomePage() {
         setProperties(data);
       }
     } catch (error) {
-      console.error('Error fetching properties:', error);
+      // Handle error silently in production
     } finally {
       setIsLoading(false);
     }

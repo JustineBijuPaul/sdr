@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -18,8 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Chrome, Loader2, Lock, User } from "lucide-react";
-import { useEffect } from "react";
+import { AlertCircle, Chrome, Loader2, Lock, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation } from "wouter";
 import { z } from "zod";
@@ -35,6 +36,32 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function AuthPage() {
   const [location, navigate] = useLocation();
   const { user, loginMutation } = useAuth();
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // Check for error messages in URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    
+    if (error) {
+      switch (error) {
+        case 'user_not_found':
+          setErrorMessage('Access denied. Your email is not registered in the system. Please contact an administrator.');
+          break;
+        case 'insufficient_role':
+          setErrorMessage('Access denied. Only administrators, staff, and superadmins can sign in.');
+          break;
+        case 'auth_failed':
+          setErrorMessage('Authentication failed. Please try again.');
+          break;
+        default:
+          setErrorMessage('An error occurred during authentication.');
+      }
+      
+      // Clear error from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -93,6 +120,14 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Error Message */}
+            {errorMessage && (
+              <Alert className="mb-4" variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+
             {/* Google OAuth Button */}
             <Button 
               onClick={handleGoogleLogin}

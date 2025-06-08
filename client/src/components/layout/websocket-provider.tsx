@@ -1,6 +1,6 @@
-import { createContext, useContext, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { createContext, ReactNode, useContext } from 'react';
 
 // Define WebSocket status types for compatibility
 type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error' | 'unsupported';
@@ -16,11 +16,11 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType>({
   isConnected: false,
   sendMessage: () => {
-    console.warn('WebSockets are disabled in this application');
+    console.warn('WebSocket connection not initialized');
     return false;
   },
   isAuthenticated: false,
-  status: 'unsupported'
+  status: 'closed'
 });
 
 /**
@@ -34,11 +34,23 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user;
 
   // Only attempt WebSocket connection if we have a token
-  // Convert null to undefined to satisfy the type constraint
   const { status, sendMessage, isConnected } = useWebSocket({
-    token: token || undefined, // Convert null to undefined
-    path: '/',
-    disabled: true, // Disable WebSocket connections completely
+    token: token || undefined,
+    path: '/ws', // Specify a dedicated WebSocket path
+    disabled: !isAuthenticated, // Only disable if not authenticated
+    onMessage: (data) => {
+      console.log('WebSocket message received:', data);
+    },
+    onOpen: () => {
+      console.log('WebSocket connection opened successfully');
+    },
+    onError: (error) => {
+      console.warn('WebSocket error:', error);
+    },
+    onClose: () => {
+      console.log('WebSocket connection closed');
+    },
+    reconnectOnClose: true
   });
 
   return (

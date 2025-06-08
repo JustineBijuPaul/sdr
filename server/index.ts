@@ -5,7 +5,6 @@ import 'dotenv/config';
 import compression from 'compression';
 import cors from 'cors';
 import express from "express";
-import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -33,6 +32,8 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Security middleware
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -42,14 +43,26 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       mediaSrc: ["'self'", "https:", "data:", "blob:", "https://res.cloudinary.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      connectSrc: ["'self'", "https://api.cloudinary.com", "https://res.cloudinary.com", "https://overpass-api.de"],
+      connectSrc: [
+        "'self'", 
+        "https://api.cloudinary.com", 
+        "https://res.cloudinary.com", 
+        "https://overpass-api.de",
+        // Allow WebSocket connections in development
+        ...(isDevelopment ? [
+          "ws://localhost:*",
+          "ws://127.0.0.1:*", 
+          "wss://localhost:*",
+          "wss://127.0.0.1:*"
+        ] : [])
+      ],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
       scriptSrcAttr: ["'none'"],
-      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
+      upgradeInsecureRequests: isDevelopment ? null : []
     }
   },
   crossOriginEmbedderPolicy: false
@@ -67,28 +80,7 @@ app.use(compression({
   }
 }));
 
-// Rate limiting
-app.use('/api', rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-}));
-
-// Stricter rate limiting for auth routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 5 in production, 50 in development
-  message: {
-    error: 'Too many login attempts, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply stricter rate limiting to auth routes
-app.use('/api/auth', authLimiter);
+// Rate limiting removed - no maximum login attempts
 
 // HTTP request logging
 if (process.env.NODE_ENV === 'production') {
@@ -103,14 +95,21 @@ if (process.env.NODE_ENV === 'production') {
 
 // CORS configuration with proper origins
 const nodeEnv = (process.env.NODE_ENV || 'development').trim();
+
+// In production, use the allowed origins from env, otherwise be more permissive for development
 const allowedOrigins = nodeEnv === 'production' 
-  ? (process.env.ALLOWED_ORIGINS || 'http://localhost:5000,http://127.0.0.1:5000').split(',').filter(Boolean)
+  ? (process.env.ALLOWED_ORIGINS || 'http://localhost:7822,http://127.0.0.1:7822,http://localhost:5000,http://127.0.0.1:5000,https://southdelhirealty.com').split(',').filter(Boolean).map(origin => origin.trim())
   : [
       'http://localhost:3000',
       'http://localhost:5000',
+      'http://localhost:7822',
       'http://127.0.0.1:3000',
-      'http://127.0.0.1:5000'
+      'http://127.0.0.1:5000',
+      'http://127.0.0.1:7822',
+      'https://southdelhirealty.com'
     ];
+
+console.log(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
@@ -123,13 +122,14 @@ const corsOptions: cors.CorsOptions = {
     if (origin && allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.warn(`CORS blocked request from origin: ${origin}`);
+      logger.warn(`CORS blocked request from origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOrigins)}`);
       callback(new Error('Not allowed by CORS'), false);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Set-Cookie']
 };
 
 app.use(cors(corsOptions));
@@ -144,20 +144,29 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'your-secret-k
   }
 }
 
-app.use(session({
+// Configure session middleware
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
   store: storage.sessionStore,
-  name: 'southdelhi.session', // Change default session name
+  name: 'southdelhi.session',
+  proxy: true, // Trust the reverse proxy
   cookie: {
-    secure: process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true',
+    secure: false, // Set to false for development
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     httpOnly: true,
-    // Use 'lax' for localhost in production mode to allow OAuth flows
-    sameSite: (process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true') ? 'strict' : 'lax'
+    sameSite: 'lax' as const // Required for Google OAuth
   }
-}));
+};
+
+// Adjust cookie settings based on environment
+if (process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true') {
+  sessionConfig.cookie.secure = true;
+  sessionConfig.cookie.sameSite = 'lax' as const; // Keep as 'lax' for OAuth
+}
+
+app.use(session(sessionConfig));
 
 // Initialize passport and session
 app.use(passport.initialize());
@@ -321,12 +330,26 @@ app.use('/', sitemapRoutes);
       process.exit(1);
     });
 
+    // Initialize superadmin user in production
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        const { initializeSuperAdmin } = await import('./init-superadmin');
+        await initializeSuperAdmin();
+      } catch (error) {
+        logger.warn('Superadmin initialization failed:', error instanceof Error ? error.message : String(error));
+        // Don't exit, just log the warning
+      }
+    }
+
     const port = parseInt(process.env.PORT || '5000', 10);
     server.listen(port, '0.0.0.0', () => {
       logger.info(`🚀 South Delhi Real Estate server starting...`);
       logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`🌐 Server running on port ${port}`);
       logger.info(`📊 Health check: http://localhost:${port}/health`);
+      if (process.env.NODE_ENV === 'production') {
+        logger.info(`👤 Default superadmin credentials: superadmin / superadmin123`);
+      }
       log(`serving on port ${port}`);
     });
 

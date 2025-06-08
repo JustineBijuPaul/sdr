@@ -1,35 +1,24 @@
 #!/usr/bin/env node
 
-// Simple production starter script for PM2
-import { spawn } from 'child_process';
+// Production starter script for PM2
+// This script directly loads the TypeScript server with tsx
 
 // Set environment variables
 process.env.NODE_ENV = 'production';
 process.env.PORT = process.env.PORT || '5000';
 
-// Start the server using tsx
-const server = spawn('npx', ['tsx', 'server/index.ts'], {
-  stdio: 'inherit',
-  env: process.env
-});
+console.log('🚀 Starting South Delhi Real Estate server in production mode...');
+console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+console.log(`🌐 Port: ${process.env.PORT}`);
 
-server.on('close', (code) => {
-  console.log(`Server process exited with code ${code}`);
-  process.exit(code);
-});
-
-server.on('error', (err) => {
-  console.error('Failed to start server:', err);
+// Register tsx and import the server
+try {
+  // Import tsx to handle TypeScript files
+  await import('tsx/esm');
+  
+  // Import the main server file
+  await import('./server/index.ts');
+} catch (error) {
+  console.error('❌ Failed to start server:', error);
   process.exit(1);
-});
-
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down gracefully');
-  server.kill('SIGTERM');
-});
-
-process.on('SIGINT', () => {
-  console.log('Received SIGINT, shutting down gracefully');
-  server.kill('SIGINT');
-}); 
+} 

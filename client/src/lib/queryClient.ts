@@ -5,7 +5,6 @@ async function throwIfResNotOk(res: Response) {
     // Special handling for auth errors - only suppress 401s for the auth/status endpoint
     // which is used to check current authentication state
     if (res.status === 401 && res.url.includes('/api/auth/status')) {
-      console.log('Auth check failed, but this is expected for public routes or /api/auth/status endpoint');
       return;
     }
     
@@ -98,8 +97,7 @@ export async function apiRequest(
       } else if (url !== '/api/auth/status') {
         console.warn(`API request warning for ${method} ${url}:`, error);
       } else {
-        // Just a debug log for user endpoint 401s
-        console.log(`Auth check failed for ${url} - this is normal for unauthenticated users`);
+        // Auth check failures are handled silently
       }
     }
     throw error;
@@ -126,8 +124,6 @@ export const getQueryFn: <T>(options: {
       
       // Add cache-busting parameter
       const urlWithCacheBusting = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
-      
-      console.log(`Fetching with queryKey: ${JSON.stringify(queryKey)}, URL: ${urlWithCacheBusting}`);
       
       const res = await fetch(urlWithCacheBusting, {
         credentials: "include",
@@ -157,10 +153,9 @@ export const getQueryFn: <T>(options: {
         if (isAdmin) {
           console.error(`Query error for ${url}:`, error);
         } else if (url !== '/api/auth/status') {
-          console.warn(`Query warning for ${url}:`, error);
+          // Removed console.warn for query warnings
         } else {
-          // Just a debug log for user endpoint 401s
-          console.log(`Auth check failed for ${url} - this is normal for unauthenticated users`);
+          // Auth check failures are handled silently
         }
       }
       throw error;

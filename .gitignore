@@ -11,6 +11,7 @@ build
 .env.development.local
 .env.test.local
 .env.production.local
+.env.docker.local
 
 # Operating System files
 .DS_Store
@@ -29,6 +30,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 server.log
+localhost-*.log
 
 # Runtime data
 pids
@@ -64,6 +66,8 @@ check-*.ts
 fix-*.ts
 test-*.ts
 cleanup-*.ts
+init-db.ts
+init-db.js
 
 # Archives
 *.tar.gz
@@ -77,9 +81,31 @@ vite.config.ts.*
 
 # Database backups (should be stored separately)
 *.sql
+backup_*.sql
+database_backup.sql
+mysql_backup.sql
 
 # Generated icon
 generated-icon.png
+
+# Docker volumes and data
+.docker-volumes/
+docker-data/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Monitoring and old configurations
+monitoring/
+nginx/
+
+# Old management scripts
+manage-server.cmd
+import_mysql.sh
+
+# Issue tracking and temporary documentation
+ISSUE_RESOLUTION_SUMMARY.md
+DEPLOYMENT.md
 
 # Miscellaneous
 theme.json

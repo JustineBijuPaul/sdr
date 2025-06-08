@@ -85,17 +85,29 @@ export function useLazyLoading() {
   }, []);
 }
 
-// Performance monitoring
+// Performance monitoring (without console logging)
 export function usePerformanceMonitoring() {
   useEffect(() => {
     // Monitor Core Web Vitals
     if ('web-vital' in window) {
       import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
-        getCLS(console.log);
-        getFID(console.log);
-        getFCP(console.log);
-        getLCP(console.log);
-        getTTFB(console.log);
+        // Monitor metrics without logging to console
+        // In production, these would be sent to analytics service
+        getCLS((metric) => {
+          // Send to analytics service if needed
+        });
+        getFID((metric) => {
+          // Send to analytics service if needed
+        });
+        getFCP((metric) => {
+          // Send to analytics service if needed
+        });
+        getLCP((metric) => {
+          // Send to analytics service if needed
+        });
+        getTTFB((metric) => {
+          // Send to analytics service if needed
+        });
       });
     }
 
@@ -114,8 +126,8 @@ export function usePerformanceMonitoring() {
           total: navigation.loadEventEnd - navigation.navigationStart
         };
 
-        // Log performance metrics (in production, send to analytics)
-        console.log('Performance Metrics:', metrics);
+        // Store metrics for analytics (instead of console logging)
+        // In production, send to analytics service
       }
     });
   }, []);

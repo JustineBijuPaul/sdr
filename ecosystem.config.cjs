@@ -2,16 +2,19 @@ module.exports = {
   apps: [
     {
       name: 'south-delhi-real-estate',
-      script: 'start-production.js',
-      instances: 1,
+      script: 'server/index.ts',
+      interpreter: 'node',
+      interpreter_args: '--import tsx/esm',
+      instances: process.env.PM2_INSTANCES || 1,
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 7822
       },
+      env_file: './.env',
       env_production: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 7822
       },
       // Logging
       log_file: './logs/pm2-combined.log',
@@ -23,7 +26,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       min_uptime: '10s',
-      max_memory_restart: '1G',
+      max_memory_restart: process.env.PM2_MEMORY_LIMIT || '1G',
       
       // Monitoring
       watch: false,

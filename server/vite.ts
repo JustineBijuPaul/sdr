@@ -27,7 +27,12 @@ export async function setupVite(app: Express, server: Server) {
   
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    hmr: { 
+      port: parseInt(process.env.HMR_PORT || '7823', 10), // Use separate port for HMR
+      host: 'localhost', // Use localhost for development
+      clientPort: parseInt(process.env.HMR_PORT || '7823', 10)
+    },
+    host: 'localhost', // Ensure server also binds to localhost
     allowedHosts: true as true,
   };
 
@@ -55,8 +60,19 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+  
+  // Only serve HTML for non-asset requests
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+
+    // Skip processing for asset requests (CSS, JS, images, etc.)
+    if (url.includes('/assets/') || 
+        url.includes('/@fs/') || 
+        url.includes('/@vite/') ||
+        url.includes('/node_modules/') ||
+        url.match(/\.(css|js|ts|jsx|tsx|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(clientRoot, "index.html");

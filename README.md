@@ -23,7 +23,7 @@ A modern, full-stack real estate management system with advanced media handling,
 
 ### 👥 User Management
 - ✅ Role-based access control (SuperAdmin, Admin, Staff)
-- ✅ Secure authentication with Passport.js
+- ✅ Secure authentication with Passport.js and Google OAuth
 - ✅ Session management with express-session
 - ✅ Staff management tools
 
@@ -109,19 +109,19 @@ npm run start:prod
 - **CORS** - Cross-origin resource sharing
 - **Express Session** - Secure session management
 
-## 📋 Environment Variables
+## 📋 Environment Configuration
 
 Create a `.env` file with the following variables:
 
 ```bash
 # Application
 NODE_ENV=production
-PORT=5000
+PORT=7822
 LOG_LEVEL=info
 
 # Security
 SESSION_SECRET=your-super-secure-session-secret-minimum-32-characters
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+ALLOWED_ORIGINS=http://localhost:7822,https://yourdomain.com
 
 # Database Configuration
 DB_HOST=localhost
@@ -144,10 +144,55 @@ EMAIL_PASS=your-app-specific-password
 EMAIL_FROM=your-email@gmail.com
 EMAIL_FROM_NAME=South Delhi Realty
 
+# Google OAuth (Optional but recommended for admin access)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
 # Application URLs
-CLIENT_URL=http://localhost:3000
-SERVER_URL=http://localhost:5000
+CLIENT_URL=http://localhost:7822
+SERVER_URL=http://localhost:7822
 ```
+
+## 👤 Default Admin Access
+
+### Automatic Superadmin Creation
+
+In production mode, a default superadmin user is automatically created:
+
+- **Username**: `superadmin`
+- **Password**: `superadmin123`
+- **Email**: `superadmin@southdelhirealty.com`
+- **Role**: `superadmin`
+
+⚠️ **Security**: Change these credentials immediately after first login!
+
+### Manual Initialization
+
+You can also manually initialize the superadmin user:
+
+```bash
+# Using npm script
+npm run init-superadmin
+
+# Using Node.js directly
+node scripts/init-superadmin.js
+```
+
+### Security Features
+
+- **Password Hashing**: Uses PBKDF2 with SHA-512 (same as application auth)
+- **Collision Detection**: Won't overwrite existing users
+- **Role Validation**: Only creates users with superadmin role
+- **Production Only**: Automatic initialization only runs in production
+
+### First Login Steps
+
+1. Navigate to `/auth` or `/admin`
+2. Use the default credentials above
+3. **Immediately** go to Staff Management and:
+   - Change the superadmin password
+   - Create additional admin/staff users
+   - Consider disabling the default superadmin account
 
 ## 🎨 Media & Watermarking Features
 
@@ -167,343 +212,470 @@ SERVER_URL=http://localhost:5000
 - **Images**: JPG, PNG, GIF, WebP (up to 100MB)
 - **Videos**: MP4, MOV, AVI, MKV, WebM (up to 100MB)
 - **Automatic optimization**: Cloudinary handles format conversion and compression
-- **CSP-compliant**: Proper security headers for media delivery
 
-## 📊 API Endpoints
+## 🐧 Ubuntu Server Deployment
 
-### Public Endpoints
-```
-GET  /api/properties              # Get properties with filtering
-GET  /api/properties/:slug        # Get property by slug
-GET  /api/featured-properties     # Get featured properties
-POST /api/inquiries               # Submit inquiry
-GET  /api/property-types          # Get property type options
-GET  /api/properties/:id/nearby-facilities  # Get nearby facilities
+### Quick Ubuntu Deployment
+
+#### Option 1: Automated Full Deployment
+```bash
+# Download and run the complete deployment script
+curl -sSL https://raw.githubusercontent.com/your-repo/main/scripts/deploy-ubuntu.sh | sudo bash
 ```
 
-### Protected Endpoints (Admin)
-```
-GET    /api/admin/dashboard       # Admin dashboard stats
-GET    /api/admin/properties      # Manage properties
-POST   /api/admin/properties      # Create property
-PUT    /api/admin/properties/:id  # Update property
-DELETE /api/admin/properties/:id  # Delete property
-POST   /api/admin/media/upload-watermarked  # Upload with watermark
-DELETE /api/admin/media/:id       # Delete media item
-GET    /api/admin/inquiries       # Manage inquiries
+#### Option 2: Using NPM Scripts
+```bash
+# Full automated Ubuntu deployment
+sudo npm run deploy-ubuntu
+
+# Or database setup only
+sudo npm run init-ubuntu
+
+# Check Ubuntu compatibility
+npm run check-ubuntu
 ```
 
-### Webhook Endpoints
-```
-POST /api/webhooks/cloudinary     # Cloudinary async processing notifications
+### Manual Ubuntu Setup
+
+#### System Requirements
+- Ubuntu 20.04 LTS or 22.04 LTS
+- Minimum 2GB RAM, 20GB storage
+- Root or sudo access
+- Internet connection
+
+#### Initial Server Setup
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install required packages
+sudo apt install -y curl wget git build-essential
+
+# Install Node.js 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PM2 globally
+sudo npm install -g pm2 tsx
+
+# Install MySQL
+sudo apt install -y mysql-server mysql-client
+
+# Install Nginx
+sudo apt install -y nginx
+
+# Install additional tools
+sudo apt install -y htop fail2ban ufw certbot python3-certbot-nginx
 ```
 
-### Monitoring Endpoints
-```
-GET /health                       # Application health check
-GET /ready                        # Database readiness check
-GET /metrics                      # Basic metrics
+#### Database Setup
+```bash
+# Clone your repository
+git clone https://github.com/your-repo/south-delhi-real-estate.git
+cd south-delhi-real-estate
+
+# Run Ubuntu MySQL setup
+sudo npm run init-ubuntu
 ```
 
-## 🔧 Development Commands
+#### Application Setup
+```bash
+# Install dependencies
+npm install --production
+
+# Copy environment template
+cp .env.ubuntu .env
+
+# Edit environment file
+nano .env
+# Update database credentials, Cloudinary, email settings, etc.
+
+# Build application
+npm run build
+
+# Start with PM2
+npm run pm2:start
+```
+
+### Nginx Configuration
+
+#### Configure Firewall
+```bash
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+#### Create Nginx Configuration
+```bash
+sudo nano /etc/nginx/sites-available/south-delhi-realty
+```
+
+Add this configuration:
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com www.your-domain.com;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    
+    # Proxy to Node.js application
+    location / {
+        proxy_pass http://127.0.0.1:7822;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+    
+    # WebSocket support
+    location /ws {
+        proxy_pass http://127.0.0.1:7822;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    client_max_body_size 100M;
+}
+```
+
+Enable the site:
+```bash
+sudo ln -s /etc/nginx/sites-available/south-delhi-realty /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### SSL Certificate (Let's Encrypt)
+```bash
+sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+```
+
+### Ubuntu Environment Configuration
+
+Copy `.env.ubuntu` to `.env` and configure:
 
 ```bash
-# Development
-npm run dev                       # Start development server (client + server)
-npm run dev:client               # Start Vite dev server only
-npm run dev:server               # Start Express server only
+# Database Configuration
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+DB_NAME=southdelhirealestate
 
-# Building
-npm run build                    # Build for production (client + server)
-npm run build:client             # Build client only
-npm run build:server             # Build server only
+# Security
+SESSION_SECRET=your-secure-32-character-secret
 
-# Production
-npm run start                    # Start production server
-npm run start:prod               # Start with NODE_ENV=production
+# Domain Configuration
+ALLOWED_ORIGINS=https://your-domain.com,https://www.your-domain.com
 
-# Process Management
-npm run pm2:start                # Start with PM2
-npm run pm2:stop                 # Stop PM2 processes
-npm run pm2:restart              # Restart PM2 processes
-npm run pm2:reload               # Reload PM2 processes
-npm run pm2:delete               # Delete PM2 processes
-npm run pm2:logs                 # View PM2 logs
-npm run pm2:status               # Check PM2 status
+# Cloudinary (Required for media)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-# Database
-npm run init-db                  # Initialize database with sample data
-npm run init-xampp               # Initialize with XAMPP MySQL
-
-# Utilities
-npm run health-check             # Check application health
-npm run lint                     # Run ESLint
-npm run test                     # Run tests (placeholder)
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
 ```
 
-## 🗄️ Database Schema
-
-### Core Tables
-```sql
-users                    # User accounts and roles
-├── id (Primary Key)
-├── username (Unique)
-├── email (Unique)
-├── password (Hashed)
-├── role (superadmin/admin/staff)
-└── timestamps
-
-properties               # Property listings
-├── id (Primary Key)
-├── title
-├── slug (SEO-friendly URL)
-├── description
-├── status (sale/rent)
-├── category (residential/commercial)
-├── propertyType
-├── price
-├── area & specifications
-├── location data
-└── timestamps
-
-property_media           # Property images and videos
-├── id (Primary Key)
-├── propertyId (Foreign Key)
-├── mediaType (image/video)
-├── cloudinaryId
-├── cloudinaryUrl
-├── isFeatured
-├── orderIndex
-├── processingStatus
-└── timestamps
-
-nearby_facilities        # Location-based amenities
-├── id (Primary Key)
-├── propertyId (Foreign Key)
-├── facilityName
-├── distance
-├── facilityType
-└── timestamps
-
-inquiries               # Customer inquiries
-├── id (Primary Key)
-├── propertyId (Foreign Key)
-├── name, email, phone
-├── message
-├── status (new/contacted/resolved)
-└── timestamps
-```
-
-### Key Features
-- **Foreign key constraints** with cascade deletion
-- **Indexed columns** for optimal query performance
-- **Automated timestamps** for audit trails
-- **Type safety** with Drizzle ORM schema validation
-
-## 🔐 Security Features
-
-### Authentication & Authorization
-- ✅ **Secure session management** with express-session
-- ✅ **Role-based access control** (SuperAdmin, Admin, Staff)
-- ✅ **Password hashing** with bcrypt
-- ✅ **Session-based authentication** with Passport.js
-
-### Security Headers & Protection
-- ✅ **Helmet.js security headers**
-- ✅ **Content Security Policy (CSP)** for media and scripts
-- ✅ **XSS protection** with input sanitization
-- ✅ **Clickjacking protection** with frame guards
-- ✅ **CORS configuration** for controlled access
-
-### Rate Limiting & DDoS Protection
-- ✅ **Global rate limiting** (100 requests/15 minutes)
-- ✅ **Auth rate limiting** (5 attempts/15 minutes)  
-- ✅ **Configurable limits** per environment
-- ✅ **IP-based tracking** with memory store
-
-### Data Protection
-- ✅ **Input validation** with Zod schemas
-- ✅ **SQL injection prevention** with parameterized queries
-- ✅ **File upload restrictions** with type and size validation
-- ✅ **Environment variable protection** with dotenv
-
-## 📈 Performance & Monitoring
-
-### Health Checks & Monitoring
+Generate Secure Session Secret:
 ```bash
-# Application health
-curl http://localhost:5000/health
-
-# Database connectivity  
-curl http://localhost:5000/ready
-
-# Basic application metrics
-curl http://localhost:5000/metrics
-
-# PM2 process monitoring
-pm2 monit
-
-# Detailed logs
-pm2 logs south-delhi-real-estate --lines 100
+openssl rand -base64 32
 ```
 
-### Log Files (Production)
+## 🐳 Docker Deployment
+
+### Prerequisites
+
+- **Docker Engine** (20.10 or later)
+- **Docker Compose** (2.0 or later)
+- **Git** (for cloning the repository)
+- **4GB RAM** minimum (8GB recommended)
+- **10GB free disk space**
+
+### Quick Docker Start
+
+#### 1. Clone and Setup
+```bash
+git clone <repository-url>
+cd SouthDelhiRealEstate
+chmod +x scripts/docker-dev.sh
 ```
-logs/
-├── error.log            # Error-level logs
-├── access.log           # HTTP access logs  
-├── combined.log         # All logs combined
-└── pm2-*.log           # PM2 process logs
+
+#### 2. Configure Environment
+```bash
+# Copy the Docker environment template
+cp .env.docker .env.docker.local
+
+# Edit with your configuration
+nano .env.docker.local
 ```
+
+**Required Configuration:**
+```bash
+# Update these with your actual values
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_app_password
+
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Generate a secure session secret
+SESSION_SECRET=your-super-secure-random-string-here
+```
+
+#### 3. Start Environment
+```bash
+# Development environment with hot reload
+./scripts/docker-dev.sh dev
+
+# Basic production setup
+./scripts/docker-dev.sh prod
+
+# Production with Nginx proxy (recommended)
+./scripts/docker-dev.sh prod-nginx
+```
+
+### Docker Architecture
+
+#### Container Services
+
+| Service | Purpose | Port | Health Check |
+|---------|---------|------|--------------|
+| **app** | Main application (Node.js + React) | 7822 | ✅ `/api/health` |
+| **mysql** | Database (MySQL 8.0) | 3306 | ✅ mysqladmin ping |
+| **redis** | Cache & sessions (Redis 7) | 6379 | ✅ redis-cli ping |
+| **nginx** | Reverse proxy (production only) | 80, 443 | ✅ HTTP check |
+
+#### Data Persistence
+
+| Volume | Purpose | Location |
+|--------|---------|----------|
+| `mysql_data` | Database storage | `/var/lib/mysql` |
+| `redis_data` | Cache storage | `/data` |
+| `app_uploads` | File uploads | `/app/uploads` |
+| `app_logs` | Application logs | `/app/logs` |
+
+### Docker Development Workflow
+
+#### Using the Helper Script
+
+```bash
+# Start development environment with hot reload
+./scripts/docker-dev.sh dev
+
+# View real-time logs
+./scripts/docker-dev.sh logs
+
+# Check container status
+./scripts/docker-dev.sh status
+
+# Access application shell
+./scripts/docker-dev.sh app-shell
+
+# Access database shell
+./scripts/docker-dev.sh db-shell
+
+# Create database backup
+./scripts/docker-dev.sh backup-db
+
+# Stop all services
+./scripts/docker-dev.sh stop
+
+# Clean up everything (⚠️ destructive)
+./scripts/docker-dev.sh clean
+```
+
+#### Manual Docker Commands
+
+```bash
+# Build images
+docker-compose build --no-cache
+
+# Start services in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Execute commands in running container
+docker-compose exec app npm run build
+docker-compose exec mysql mysql -u root -p
+
+# Scale services (if needed)
+docker-compose up -d --scale app=2
+
+# Stop and remove everything
+docker-compose down -v
+```
+
+## 🔧 Service Management
+
+### PM2 Commands
+```bash
+# Application management
+pm2 status                    # Check status
+pm2 restart south-delhi-real-estate
+pm2 stop south-delhi-real-estate
+pm2 logs south-delhi-real-estate
+pm2 monit                     # Real-time monitoring
+
+# PM2 startup configuration
+pm2 startup                   # Generate startup script
+pm2 save                      # Save current process list
+```
+
+### Health Monitoring
+
+#### Health Endpoints
+
+| Endpoint | Purpose | Response |
+|----------|---------|----------|
+| `/health` | Basic health check | Service status |
+| `/ready` | Readiness probe | Database connectivity |
+| `/metrics` | Basic metrics | Memory, uptime, etc. |
+
+## 📊 Performance & Security
+
+### Monitoring Features
+- **Real-time performance metrics** via PM2
+- **Application health checks** for load balancers
+- **Database connection monitoring**
+- **Memory and CPU usage tracking**
+- **Error logging and aggregation**
+
+### Security Features
+- **Rate limiting** to prevent DDoS attacks
+- **Security headers** (HSTS, CSP, X-Frame-Options)
+- **Input validation** and sanitization
+- **SQL injection prevention** via Drizzle ORM
+- **CSRF protection** with secure sessions
+- **File upload restrictions** and validation
 
 ### Performance Optimizations
-- ✅ **React Query caching** with automatic invalidation
-- ✅ **Gzip compression** for responses
-- ✅ **Cloudinary CDN** for media delivery
-- ✅ **Database indexing** for fast queries
-- ✅ **Connection pooling** with mysql2
-- ✅ **Asset bundling** with Vite
+- **Gzip compression** for all responses
+- **Static asset caching** with proper headers
+- **Database query optimization** with indexes
+- **Image optimization** via Cloudinary
+- **Lazy loading** for large property lists
+- **Connection pooling** for database
 
 ## 🚨 Troubleshooting
 
-### Common Issues & Solutions
+### Common Issues
 
-**Port Already in Use (EADDRINUSE)**
+#### Database Connection Errors
 ```bash
-# Method 1: Kill specific port
-lsof -ti:5000 | xargs kill
-
-# Method 2: Kill all PM2 processes
-pm2 delete all
-
-# Method 3: Kill all node processes
-pkill -f node
-```
-
-**Database Connection Failed**
-```bash
-# Check MySQL service status
+# Check MySQL service
 sudo systemctl status mysql
 
-# Test database connection
-mysql -u your_user -p -e "SELECT 1"
+# Check database credentials
+mysql -u root -p
 
-# Reset MySQL password if needed
-sudo mysql -u root -p
-ALTER USER 'your_user'@'localhost' IDENTIFIED BY 'new_password';
-FLUSH PRIVILEGES;
+# Verify database exists
+mysql -u root -p -e "SHOW DATABASES;"
 ```
 
-**Cloudinary Upload Issues**
+#### PM2 Issues
 ```bash
-# Verify environment variables
-echo $CLOUDINARY_CLOUD_NAME
-echo $CLOUDINARY_API_KEY
+# Check PM2 status
+pm2 status
 
-# Test API connectivity
-curl "https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/image/upload" \
-  -X POST \
-  -F "upload_preset=unsigned_preset" \
-  -F "file=@test_image.jpg"
+# Restart application
+pm2 restart south-delhi-real-estate
+
+# Check logs
+pm2 logs --lines 50
 ```
 
-**React Query Cache Issues**
+#### Nginx Issues
 ```bash
-# Clear browser cache and reload
-# Check network tab for failed API calls
-# Verify cache invalidation in removeMedia function
+# Test Nginx configuration
+sudo nginx -t
+
+# Check Nginx status
+sudo systemctl status nginx
+
+# Reload Nginx
+sudo systemctl reload nginx
 ```
 
-### Debug Mode
+#### Docker Issues
 ```bash
-# Enable verbose logging
-LOG_LEVEL=debug npm run start:prod
+# Check container status
+docker-compose ps
 
-# Monitor specific component logs  
-DEBUG=property-form npm run dev
+# View logs
+docker-compose logs app
 
-# View real-time PM2 logs
-pm2 logs south-delhi-real-estate --follow
+# Rebuild containers
+docker-compose up --build
 ```
 
-## 🎯 Key Features Implemented
+### Log Locations
 
-### ✅ Media Management Revolution
-- **Universal watermarking** for brand consistency
-- **Fixed-size gallery** for professional appearance  
-- **Async video processing** for large files
-- **Real-time cache updates** across all pages
-- **CSP compliance** for security
+- **Application Logs**: `/var/log/south-delhi-realty/`
+- **Nginx Logs**: `/var/log/nginx/`
+- **MySQL Logs**: `/var/log/mysql/`
+- **PM2 Logs**: `~/.pm2/logs/`
 
-### ✅ Advanced Property Features
-- **Interactive maps** with nearby facilities auto-discovery
-- **Privacy protection** with 2km location generalization
-- **SEO optimization** with dynamic slugs
-- **Mobile-responsive** design throughout
+## 📚 API Documentation
 
-### ✅ Production-Ready Infrastructure
-- **PM2 process management** with monitoring
-- **Comprehensive logging** with Winston
-- **Health check endpoints** for monitoring
-- **Rate limiting** for abuse prevention
-- **Security headers** for protection
+### Authentication Endpoints
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/google` - Google OAuth login
+- `GET /api/auth/google/callback` - Google OAuth callback
 
-## 📞 Support & Maintenance
+### Property Endpoints
+- `GET /api/properties` - List properties (with filtering)
+- `GET /api/properties/:id` - Get property details
+- `POST /api/properties` - Create property (admin only)
+- `PUT /api/properties/:id` - Update property (admin only)
+- `DELETE /api/properties/:id` - Delete property (admin only)
 
-### Getting Help
-1. **Check application health**: `curl http://localhost:5000/health`
-2. **Review error logs**: `pm2 logs south-delhi-real-estate --lines 50`
-3. **Test database**: `mysql -u user -p -e "SELECT COUNT(*) FROM properties"`
-4. **Verify Cloudinary**: Check dashboard at cloudinary.com
+### Media Endpoints
+- `POST /api/upload` - Upload media files
+- `GET /api/media/:id` - Get media details
+- `DELETE /api/media/:id` - Delete media (admin only)
 
-### Backup & Recovery
-```bash
-# Database backup
-mysqldump -u user -p southdelhirealestate > backup_$(date +%Y%m%d).sql
+### Admin Endpoints
+- `GET /api/admin/stats` - Dashboard statistics
+- `GET /api/admin/users` - List users
+- `POST /api/admin/users` - Create user
+- `PUT /api/admin/users/:id` - Update user
+- `DELETE /api/admin/users/:id` - Delete user
 
-# Restore database
-mysql -u user -p southdelhirealestate < backup_file.sql
+## 🤝 Contributing
 
-# Environment backup
-cp .env .env.backup.$(date +%Y%m%d)
-```
-
-## 🏗️ Architecture Overview
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React Client  │    │  Express Server  │    │     MySQL DB    │
-│                 │    │                  │    │                 │
-│ • Modern UI     │◄──►│ • REST API       │◄──►│ • Properties    │
-│ • React Query   │    │ • Authentication │    │ • Users         │
-│ • Type Safety   │    │ • Media Upload   │    │ • Media         │
-│ • Responsive    │    │ • Watermarking   │    │ • Inquiries     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌────────▼────────┐             │
-         │              │   Cloudinary    │             │
-         │              │                 │             │
-         └──────────────►│ • Media Storage │◄────────────┘
-                        │ • Watermarking  │
-                        │ • CDN Delivery  │
-                        └─────────────────┘
-```
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🆘 Support
 
-- **React team** for the amazing framework and ecosystem
-- **Express.js** for the robust and flexible server framework  
-- **Drizzle team** for the excellent type-safe ORM
-- **Cloudinary** for powerful media management and transformation
-- **Radix UI** for accessible component primitives
-- **All open-source contributors** who make projects like this possible
+For support, email support@southdelhirealty.com or create an issue in the repository.
 
 ---
 
-**Built with ❤️ for South Delhi Real Estate**
-
-*A modern, secure, and scalable real estate management solution with cutting-edge media handling and user experience.* 
+**Happy Real Estate Management! 🏡** 

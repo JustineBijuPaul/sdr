@@ -1,13 +1,13 @@
-import { createContext, ReactNode, useContext, useState, useEffect } from "react";
-import {
-  useQuery,
-  useMutation,
-  UseMutationResult,
-} from "@tanstack/react-query";
-import { insertUserSchema, User, InsertUser } from "@shared/schema";
-import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { InsertUser, User } from "@shared/schema";
+import {
+    useMutation,
+    UseMutationResult,
+    useQuery,
+} from "@tanstack/react-query";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
 
 type AuthContextType = {
   user: User | null;
@@ -53,9 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Generate a token when user is logged in
   useEffect(() => {
     if (user) {
-      // Generate a random token for WebSocket authentication
-      // In a real app, this should come from your backend
-      const newToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      // Generate a more robust token for WebSocket authentication
+      // In a real app, this should come from your backend as a JWT
+      const timestamp = Date.now().toString(36);
+      const randomPart = Math.random().toString(36).substring(2);
+      const userPart = user.id.toString(36);
+      const newToken = `ws_${userPart}_${timestamp}_${randomPart}`;
       setToken(newToken);
     } else {
       setToken(null);
@@ -68,10 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: User) => {
-      console.log("Login successful, user object:", user);
-      console.log("Username:", user.username);
-      console.log("User type:", typeof user);
-      console.log("User keys:", Object.keys(user || {}));
+      // Removed debug console.log statements
       
       // Set the user data in the cache first
       queryClient.setQueryData(["/api/auth/status"], user);
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
-      console.log("Login error:", error);
+      // Removed console.log for login error
       toast({
         title: "Login failed",
         description: error.message,

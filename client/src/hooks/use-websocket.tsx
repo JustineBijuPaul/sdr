@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type WebSocketStatus = 'connecting' | 'open' | 'closed' | 'error' | 'unsupported';
 
@@ -28,7 +28,21 @@ export function useWebSocket({
   const [error, setError] = useState<Event | null>(null);
   const connectionAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const isConnectingRef = useRef(false);
   const wsSupported = typeof WebSocket !== 'undefined';
+
+  // Memoize callbacks to prevent effect from running too often
+  const onMessageRef = useRef(onMessage);
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
+  const onErrorRef = useRef(onError);
+  
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+    onOpenRef.current = onOpen;
+    onCloseRef.current = onClose;
+    onErrorRef.current = onError;
+  });
 
   useEffect(() => {
     // Early returns for cases where we shouldn't connect
@@ -48,6 +62,11 @@ export function useWebSocket({
       return;
     }
 
+    // Don't create multiple connections
+    if (isConnectingRef.current || (socket && socket.readyState !== WebSocket.CLOSED)) {
+      return;
+    }
+
     // Limit reconnection attempts
     if (connectionAttemptsRef.current > 3) {
       console.warn('WebSocket connection attempts exceeded, stopping reconnection attempts');
@@ -55,19 +74,21 @@ export function useWebSocket({
       return;
     }
 
+    isConnectingRef.current = true;
+
     // Get the current hostname from window location
     const hostname = window.location.hostname || 'localhost';
     
-    // Create the WebSocket URL with explicit port - default to 5000 if running locally
-    // Note: In production, WebSocket should use the same host without specifying port
+    // Create the WebSocket URL - always connect to backend server port
     let wsUrl;
     try {
+      console.log(`[WS] Building URL with path: "${path}"`);
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // Get port from window.location.port, default to 5000 if undefined or empty
-        const currentPort = window.location.port;
-        const port = currentPort && currentPort !== '' ? currentPort : '5000';
-        console.log('Using WebSocket port:', port);
-        wsUrl = `ws://${hostname}:${port}${path}${path.includes('?') ? '&' : '?'}token=${token}`;
+        // In development, always connect to the backend server port (7822)
+        // regardless of which port the frontend is served from
+        const backendPort = '7822';
+        console.log('Using WebSocket port:', backendPort);
+        wsUrl = `ws://${hostname}:${backendPort}${path}${path.includes('?') ? '&' : '?'}token=${token}`;
       } else {
         // In production, use the same host and let the server handle port mapping
         const portPart = window.location.port && window.location.port !== '' ? `:${window.location.port}` : '';
@@ -75,12 +96,12 @@ export function useWebSocket({
       }
     } catch (error) {
       console.error('Error building WebSocket URL:', error);
-      wsUrl = `ws://localhost:5000${path}${path.includes('?') ? '&' : '?'}token=${token}`;
+      wsUrl = `ws://localhost:7822${path}${path.includes('?') ? '&' : '?'}token=${token}`;
     }
     
     // Log the websocket URL for debugging (strip token for security)
     const debugUrl = wsUrl.replace(/token=([^&]*)/, 'token=REDACTED');
-    console.log(`Attempting WebSocket connection to: ${debugUrl}`);
+    console.log(`[WS] Attempting connection ${connectionAttemptsRef.current + 1}/4 to: ${debugUrl}`);
     
     let ws: WebSocket;
     try {
@@ -92,6 +113,7 @@ export function useWebSocket({
       const connectionTimeout = setTimeout(() => {
         if (ws && ws.readyState !== WebSocket.OPEN) {
           console.warn('WebSocket connection timed out');
+          isConnectingRef.current = false;
           ws.close();
           setStatus('error');
           
@@ -113,37 +135,40 @@ export function useWebSocket({
       
       ws.onopen = () => {
         clearTimeout(connectionTimeout);
+        isConnectingRef.current = false;
         setStatus('open');
         connectionAttemptsRef.current = 0; // Reset connection attempts on successful connection
-        if (onOpen) onOpen();
+        console.log('[WS] Connection established successfully');
+        if (onOpenRef.current) onOpenRef.current();
       };
       
       ws.onmessage = (event) => {
-        if (onMessage) {
+        if (onMessageRef.current) {
           try {
             const data = JSON.parse(event.data);
-            onMessage(data);
+            onMessageRef.current(data);
           } catch (e) {
-            onMessage(event.data);
+            onMessageRef.current(event.data);
           }
         }
       };
       
       ws.onclose = () => {
         clearTimeout(connectionTimeout);
+        isConnectingRef.current = false;
         setStatus('closed');
-        if (onClose) onClose();
+        if (onCloseRef.current) onCloseRef.current();
         
         // Auto reconnect logic with exponential backoff
         if (reconnectOnClose && connectionAttemptsRef.current < 3) {
           const backoffTime = Math.min(3000 * Math.pow(2, connectionAttemptsRef.current), 30000);
+          connectionAttemptsRef.current += 1;
           
           if (reconnectTimeoutRef.current) {
             window.clearTimeout(reconnectTimeoutRef.current);
           }
           
           reconnectTimeoutRef.current = window.setTimeout(() => {
-            connectionAttemptsRef.current += 1;
             setSocket(null);
             reconnectTimeoutRef.current = null;
           }, backoffTime);
@@ -153,12 +178,13 @@ export function useWebSocket({
       ws.onerror = (event) => {
         // Just log the first error to prevent console spam
         if (connectionAttemptsRef.current === 0) {
-          console.warn('WebSocket error occurred - this may be normal if no WebSocket server is available');
+          console.warn('[WS] WebSocket error occurred - this may be normal if no WebSocket server is available');
         }
         
+        isConnectingRef.current = false;
         // Don't set error status immediately, let the connection timeout or close handlers deal with it
         setError(event);
-        if (onError) onError(event);
+        if (onErrorRef.current) onErrorRef.current(event);
       };
     } catch (error) {
       // Only log the first error to prevent console spam
@@ -166,18 +192,19 @@ export function useWebSocket({
         console.warn('WebSocket initialization error - this may be normal if no WebSocket server is available');
       }
       
+      isConnectingRef.current = false;
       setStatus('error');
       
       // Try to reconnect after error with exponential backoff if this isn't our last attempt
       if (reconnectOnClose && connectionAttemptsRef.current < 3) {
         const backoffTime = Math.min(3000 * Math.pow(2, connectionAttemptsRef.current), 30000);
+        connectionAttemptsRef.current += 1;
         
         if (reconnectTimeoutRef.current) {
           window.clearTimeout(reconnectTimeoutRef.current);
         }
         
         reconnectTimeoutRef.current = window.setTimeout(() => {
-          connectionAttemptsRef.current += 1;
           setSocket(null);
           reconnectTimeoutRef.current = null;
         }, backoffTime);
@@ -186,6 +213,7 @@ export function useWebSocket({
     
     // Cleanup function
     return () => {
+      isConnectingRef.current = false;
       if (ws) {
         ws.close();
       }
@@ -195,7 +223,7 @@ export function useWebSocket({
         reconnectTimeoutRef.current = null;
       }
     };
-  }, [path, token, onMessage, onOpen, onClose, onError, reconnectOnClose, socket === null, disabled, wsSupported]);
+  }, [path, token, reconnectOnClose, disabled, wsSupported]);
   
   const sendMessage = (data: any) => {
     if (socket && status === 'open') {

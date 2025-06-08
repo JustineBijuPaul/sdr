@@ -25,6 +25,18 @@ import { db } from "./db";
 // Create memory store constructor
 const MemoryStore = memorystore(session);
 
+// Configure session store with better defaults
+const sessionStore = new MemoryStore({
+  checkPeriod: 86400000, // Prune expired entries every 24h
+  max: 1000, // Maximum number of sessions to store
+  ttl: 86400000, // Time to live - 24 hours
+  stale: false, // Don't return stale data
+  dispose: (key, value) => {
+    console.log(`Session expired: ${key}`);
+  },
+  noDisposeOnSet: true
+});
+
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -105,9 +117,7 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    });
+    this.sessionStore = sessionStore;
   }
 
   // User operations

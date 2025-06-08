@@ -522,7 +522,7 @@ export default function PropertyDetailPage() {
                       Or contact us directly:
                     </p>
                     <Button variant="outline" className="w-full justify-start">
-                      <Phone className="h-4 w-4 mr-2" /> +91 98765 43210
+                      <Phone className="h-4 w-4 mr-2" /> +91 99112 48822
                     </Button>
                     <Button variant="outline" className="w-full justify-start">
                       <Mail className="h-4 w-4 mr-2" /> southdelhirealti@gmail.com

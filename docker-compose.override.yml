@@ -1,0 +1,30 @@
+# Development override for docker-compose.yml
+# This file provides development-specific configurations
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base  # Use base stage for development
+    volumes:
+      # Mount source code for development
+      - .:/app
+      - /app/node_modules
+      - app_uploads:/app/uploads
+      - app_logs:/app/logs
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    command: npm run dev
+    ports:
+      - "7822:7822"
+      - "7823:7823"
+
+  # Override nginx to not start in development
+  nginx:
+    profiles:
+      - production
+      - staging 

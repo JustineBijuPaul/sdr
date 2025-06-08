@@ -1,14 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'wouter';
-import { 
-  Card, 
-  CardContent, 
-  CardFooter, 
-  CardHeader
-} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+    Card,
+    CardContent,
+    CardHeader
+} from '@/components/ui/card';
 import { PropertyWithRelations } from '@shared/schema';
-import { Bed, Bath, Square, MapPin, Home } from 'lucide-react';
+import { Bath, Bed, Home, Square } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'wouter';
 
 interface PropertyCardProps {
   property: PropertyWithRelations;
@@ -31,37 +30,9 @@ export default function PropertyCard({ property, showFullDetails = false }: Prop
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
   
-  // Log property details for debugging
-  useEffect(() => {
-    console.log('Property received:', property);
-    console.log('Raw property media:', property.media);
-    
-    // Create a mapped version of the property for logging
-    const mappedProperty = {
-      id: property.id,
-      title: property.title,
-      slug: property.slug,
-      price: property.price,
-      status: property.status,
-      propertyType: property.propertyType,
-      category: property.category
-    };
-    
-    console.log('Mapped property:', mappedProperty);
-  }, [property]);
-  
   // Get media for property
   useEffect(() => {
     try {
-      // Output the media structure for debugging
-      console.log('Media debug:', {
-        hasMedia: !!property.media,
-        mediaLength: property.media?.length,
-        mediaType: typeof property.media,
-        firstItem: property.media?.[0],
-        hasFeaturedImage: !!(property as any).featured_image
-      });
-
       // First try to use property.media array if it exists
       if (property.media && Array.isArray(property.media) && property.media.length > 0) {
         // Find featured image or use first image
@@ -78,22 +49,16 @@ export default function PropertyCard({ property, showFullDetails = false }: Prop
             '';
           
           if (imageUrl) {
-            console.log('Found image URL in media array:', imageUrl);
             setImageSrc(imageUrl);
           }
         }
       } 
       // Fallback to featured_image if available
       else if ((property as any).featured_image) {
-        console.log('Using fallback featured_image:', (property as any).featured_image);
         setImageSrc((property as any).featured_image);
       }
-      // Last resort - log that no image was found
-      else {
-        console.warn('No media found for property:', property.id);
-      }
     } catch (err) {
-      console.error('Error loading property image:', err);
+      // Handle error silently
     }
   }, [property]);
   
@@ -108,7 +73,6 @@ export default function PropertyCard({ property, showFullDetails = false }: Prop
   
   // Handle image load error
   const handleImageError = () => {
-    console.error('Failed to load image:', imageSrc);
     setImageError(true);
     setImageSrc(null);
   };

@@ -79,7 +79,7 @@ async function createMySqlDatabase() {
           bedrooms: 3,
           bathrooms: 2,
           price: 12000000,
-          contactDetails: "+91 98765 43210",
+          contactDetails: "+91 99112 48822",
           isActive: true
         },
         {
@@ -92,7 +92,7 @@ async function createMySqlDatabase() {
           area: 800,
           areaUnit: "sq-ft",
           price: 150000,
-          contactDetails: "+91 98765 43210",
+          contactDetails: "+91 99112 48822",
           isActive: true
         }
       ];
