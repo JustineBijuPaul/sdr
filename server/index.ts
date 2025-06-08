@@ -174,13 +174,24 @@ app.use(passport.session());
 
 // Health check endpoint
 app.get('/health', (req: any, res: any) => {
+  const taxService = (global as any).taxService;
+  const taxServiceStatus = process.env.NODE_ENV === 'production' 
+    ? (taxService && !taxService.killed ? 'running' : 'stopped')
+    : 'not_applicable_in_dev';
+
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.npm_package_version || '1.0.0',
+    services: {
+      taxEmailService: {
+        status: taxServiceStatus,
+        port: process.env.TAX_EMAIL_SERVICE_PORT || '7824'
+      }
+    }
   });
 });
 
@@ -302,6 +313,13 @@ app.use('/', sitemapRoutes);
     const gracefulShutdown = (signal: string) => {
       logger.info(`Received ${signal}. Starting graceful shutdown...`);
       
+      // Close tax service if running
+      const taxService = (global as any).taxService;
+      if (taxService && !taxService.killed) {
+        logger.info('Stopping Tax Email Service...');
+        taxService.kill('SIGTERM');
+      }
+      
       server.close(() => {
         logger.info('HTTP server closed.');
         logger.info('Application shutdown complete.');
@@ -311,6 +329,10 @@ app.use('/', sitemapRoutes);
       // Force close server after 30s
       setTimeout(() => {
         logger.error('Could not close connections in time, forcefully shutting down');
+        // Force kill tax service if still running
+        if (taxService && !taxService.killed) {
+          taxService.kill('SIGKILL');
+        }
         process.exit(1);
       }, 30000);
     };
@@ -337,6 +359,58 @@ app.use('/', sitemapRoutes);
         await initializeSuperAdmin();
       } catch (error) {
         logger.warn('Superadmin initialization failed:', error instanceof Error ? error.message : String(error));
+        // Don't exit, just log the warning
+      }
+
+      // Initialize Tax Email Service in production
+      try {
+        const { spawn } = await import('child_process');
+        const path = await import('path');
+        
+        const taxServicePath = path.join(process.cwd(), 'services', 'tax-email-service.js');
+        
+        const taxService = spawn('node', [taxServicePath], {
+          stdio: ['inherit', 'pipe', 'pipe'],
+          cwd: process.cwd(),
+          detached: false
+        });
+
+        // Log tax service stdout
+        taxService.stdout?.on('data', (data) => {
+          const message = data.toString().trim();
+          if (message) {
+            logger.info(`[Tax Service] ${message}`);
+          }
+        });
+
+        // Log tax service stderr
+        taxService.stderr?.on('data', (data) => {
+          const message = data.toString().trim();
+          if (message) {
+            logger.error(`[Tax Service Error] ${message}`);
+          }
+        });
+
+        taxService.on('error', (error) => {
+          logger.error('Failed to start Tax Email Service:', error);
+        });
+
+        taxService.on('close', (code) => {
+          if (code !== 0) {
+            logger.warn(`Tax Email Service exited with code ${code}`);
+          } else {
+            logger.info('Tax Email Service stopped gracefully');
+          }
+        });
+
+        // Store reference for cleanup
+        (global as any).taxService = taxService;
+
+        logger.info('🚀 Tax Email Service started automatically in production mode');
+        logger.info(`📧 Tax Service running on port ${process.env.TAX_EMAIL_SERVICE_PORT || '7824'}`);
+        
+      } catch (error) {
+        logger.warn('Tax Email Service initialization failed:', error instanceof Error ? error.message : String(error));
         // Don't exit, just log the warning
       }
     }

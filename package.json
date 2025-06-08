@@ -46,7 +46,10 @@
     "db:studio": "drizzle-kit studio",
     "prestart": "npm run build",
     "postinstall": "npm run security:audit",
-    "verify:production": "node scripts/verify-production-ready.js"
+    "verify:production": "node scripts/verify-production-ready.js",
+    "tax-service": "node services/tax-email-service.js",
+    "tax-service:dev": "node scripts/start-tax-service.js",
+    "tax-service:pm2": "pm2 start services/tax-email-service.js --name tax-email-service"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
