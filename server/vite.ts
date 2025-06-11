@@ -1,3 +1,4 @@
+import react from "@vitejs/plugin-react";
 import express, { type Express } from "express";
 import fs from "fs";
 import { type Server } from "http";
@@ -46,7 +47,7 @@ export async function setupVite(app: Express, server: Server) {
       },
     },
     plugins: [
-      (await import("@vitejs/plugin-react")).default(),
+      react(),
     ],
     customLogger: {
       ...viteLogger,
