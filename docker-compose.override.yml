@@ -11,8 +11,8 @@ services:
       # Mount source code for development
       - .:/app
       - /app/node_modules
-      - app_uploads:/app/uploads
-      - app_logs:/app/logs
+      - uploads:/app/uploads
+      - logs:/app/logs
     environment:
       NODE_ENV: development
       LOG_LEVEL: debug
@@ -25,4 +25,8 @@ services:
   nginx:
     profiles:
       - production
-      - staging 
+      - staging
+
+volumes:
+  uploads:
+  logs: 

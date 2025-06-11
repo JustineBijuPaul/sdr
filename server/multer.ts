@@ -17,15 +17,13 @@ const storage = new CloudinaryStorage({
     folder: 'south-delhi-realty',
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'],
     resource_type: 'auto', // detects if it's image or video
-    // Add transformation to ensure proper processing
     transformation: [
       { quality: 'auto', fetch_format: 'auto' }
     ],
-    // Ensure proper timestamp by explicitly setting it
     use_filename: true,
     unique_filename: true,
-  } as any,
-});
+  },
+}) as unknown as multer.StorageEngine;
 
 // Multer middleware configuration
 const upload: Multer = multer({ 

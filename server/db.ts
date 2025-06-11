@@ -27,3 +27,26 @@ const connection = process.env.DATABASE_URL
 
 // Drizzle ORM client
 export const db = drizzle(connection, { schema, mode: "default" });
+
+// Initialize database connection
+export async function initializeDB(): Promise<void> {
+  try {
+    // Test the connection
+    const conn = await connection.getConnection();
+    console.log('✅ Database connection established successfully');
+    console.log('📊 Database connection info:', {
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT
+    });
+    conn.release();
+    
+    // Initialize any required database setup here
+    // For example, you might want to run migrations or create initial data
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize database:', error);
+    throw error;
+  }
+}

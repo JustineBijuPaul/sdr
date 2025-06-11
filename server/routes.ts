@@ -1,6 +1,6 @@
 import { v2 as cloudinaryV2 } from 'cloudinary';
 import { eq } from "drizzle-orm";
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import multer from 'multer';
 import { WebSocketServer } from 'ws';
@@ -40,16 +40,17 @@ const upload = multer({
 });
 
 // Cloudinary config check middleware
-const checkCloudinaryConfig = (req: any, res: any, next: any) => {
+const checkCloudinaryConfig = (req: Request, res: Response, next: NextFunction): void => {
   if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    return res.status(500).json({ 
+    res.status(500).json({ 
       error: "Cloudinary configuration missing. Please check environment variables." 
     });
+    return;
   }
   next();
 };
 
-const deleteFromCloudinary = async (publicId: string, resourceType: 'image' | 'video' = 'image') => {
+const deleteFromCloudinary = async (publicId: string, resourceType: 'image' | 'video' = 'image'): Promise<any> => {
   try {
     const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
     return result;
@@ -132,23 +133,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/auth', authRouter);
 
   // Middleware to check authentication
-  const ensureAuthenticated = (req: any, res: any, next: any) => {
-    if (req.isAuthenticated() && req.user) {
+  const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (req.isAuthenticated()) {
       return next();
     }
-    res.status(401).json({ message: 'Not authenticated' });
+    res.status(401).json({ message: "Unauthorized" });
   };
 
   // Middleware to check admin role
-  const ensureAdmin = (req: any, res: any, next: any) => {
-    if (req.isAuthenticated() && req.user && req.user.role === 'admin') {
+  const ensureAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (req.isAuthenticated() && req.user && (req.user as any).role === 'admin') {
       return next();
     }
-    res.status(403).json({ message: 'Admin access required' });
+    res.status(403).json({ message: "Forbidden" });
   };
 
   // Middleware to ensure user is a superadmin
-  function ensureSuperAdmin(req: any, res: any, next: any) {
+  function ensureSuperAdmin(req: Request, res: Response, next: NextFunction) {
     if (req.isAuthenticated() && req.user.role === 'superadmin') {
       return next();
     }
@@ -156,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Middleware to ensure user is staff, admin, or superadmin
-  function ensureStaff(req: any, res: any, next: any) {
+  function ensureStaff(req: Request, res: Response, next: NextFunction) {
     if (req.isAuthenticated() && 
         (req.user.role === 'staff' || req.user.role === 'admin' || req.user.role === 'superadmin')) {
       return next();
@@ -165,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // User management routes - Superadmin only
-  app.get('/api/admin/users', ensureSuperAdmin, async (req: any, res: any) => {
+  app.get('/api/admin/users', ensureSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const users = await storage.getUsers();
       res.json(users);
@@ -175,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/users', ensureSuperAdmin, async (req: any, res: any) => {
+  app.post('/api/admin/users', ensureSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { username, email, password, role } = req.body;
       
@@ -216,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/users/:userId", ensureSuperAdmin, async (req: any, res: any) => {
+  app.delete("/api/admin/users/:userId", ensureSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
     const userId = parseInt(req.params.userId, 10);
     
     if (!req.user) {
@@ -240,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/users/:userId", ensureSuperAdmin, async (req: any, res: any) => {
+  app.put("/api/admin/users/:userId", ensureSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
     const userId = parseInt(req.params.userId, 10);
     
     if (!req.user) {
@@ -362,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/properties/:slug", async (req, res, next) => {
+  app.get("/api/properties/:slug", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const property = await storage.getPropertyBySlug(req.params.slug);
       if (!property) {
@@ -375,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Search for nearby facilities based on property location
-  app.get("/api/properties/:id/nearby-facilities", async (req, res, next) => {
+  app.get("/api/properties/:id/nearby-facilities", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -383,30 +384,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { radius = '1', facilityType } = req.query;
-      const searchRadius = parseFloat(radius as string) || 1; // Default to 1 km radius
-      const searchRadiusMeters = searchRadius * 1000; // Convert km to meters for comparison
+      const searchRadius = parseFloat(radius as string) || 1;
+      const searchRadiusMeters = searchRadius * 1000;
       
       const facilities = await storage.getNearbyFacilities(id);
       
-      // Filter by radius (using distanceValue in meters)
       const filteredByRadius = facilities.filter(facility => {
-        // If the facility has a distanceValue field, use it for filtering
-        // Otherwise fall back to parsed distance field
         if (facility.distanceValue !== undefined && facility.distanceValue !== null) {
           return facility.distanceValue <= searchRadiusMeters;
         } else if (typeof facility.distance === 'string') {
-          // Try to extract numeric value from distance string (e.g., "2.5 km" -> 2.5)
           const distanceMatch = facility.distance.match(/^(\d+(\.\d+)?)/);
           if (distanceMatch) {
             const distanceValue = parseFloat(distanceMatch[1]);
-            // Assume distance is in km if not specified
             return distanceValue <= searchRadius;
           }
         }
         return false;
       });
       
-      // Filter by facility type if provided
       const result = facilityType
         ? filteredByRadius.filter(f => f.facilityType === facilityType)
         : filteredByRadius;
@@ -418,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inquiry submission
-  app.post("/api/inquiries", async (req, res, next) => {
+  app.post("/api/inquiries", async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('📝 Inquiry submission started');
       console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
@@ -484,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Property type lookup
-  app.get("/api/property-types", async (req, res) => {
+  app.get("/api/property-types", async (_req: Request, res: Response) => {
     res.json({
       propertyTypes: ["apartment", "independent-house", "villa", "farm-house", "shop", "basement"],
       propertyCategories: ["residential", "commercial"],
@@ -500,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin Dashboard API - Protected
 
-  app.get("/api/admin/dashboard", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.get("/api/admin/dashboard", ensureAuthenticated, async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -510,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin Property Management
-  app.get("/api/admin/properties", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.get("/api/admin/properties", ensureAuthenticated, async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const properties = await storage.getProperties();
       res.json(properties);
@@ -519,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/properties/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.get("/api/admin/properties/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -537,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/properties", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.post("/api/admin/properties", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Convert frontend underscore format to backend hyphen format for area units
       if (req.body.areaUnit) {
@@ -557,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/properties/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.put("/api/admin/properties/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -589,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/properties/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.delete("/api/admin/properties/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -623,14 +618,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Property Media Management - original upload endpoint (for backward compatibility)
-  app.post("/api/admin/media/upload", ensureAuthenticated, checkCloudinaryConfig, async (req: any, res: any) => {
+  app.post("/api/admin/media/upload", ensureAuthenticated, checkCloudinaryConfig, async (req: Request, res: Response): Promise<void> => {
     try {
       console.log("📨 Media upload request received");
       console.log("📋 Request body keys:", Object.keys(req.body));
       
       if (!req.body.fileData) {
         console.log("❌ No fileData found in request body");
-        return res.status(400).json({ error: "No file data provided" });
+        res.status(400).json({ error: "No file data provided" });
+        return;
       }
 
       const { fileData, fileName, propertyId } = req.body;
@@ -679,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Property Media Management - watermarked upload endpoint
-  app.post("/api/admin/media/upload-watermarked", ensureAuthenticated, checkCloudinaryConfig, async (req: any, res: any) => {
+  app.post("/api/admin/media/upload-watermarked", ensureAuthenticated, checkCloudinaryConfig, async (req: Request, res: Response) => {
     try {
       console.log("📨 Watermarked media upload request received");
       console.log("📋 Request body keys:", Object.keys(req.body));
@@ -899,12 +895,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Multiple file upload endpoint
-  app.post("/api/admin/media/upload-multiple", ensureAuthenticated, checkCloudinaryConfig, upload.array('files', 10), (req: any, res: any) => {
+  app.post("/api/admin/media/upload-multiple", ensureAuthenticated, checkCloudinaryConfig, upload.array('files', 10), (req: Request, res: Response): void => {
     try {
       const uploadedFiles = req.files as CloudinaryFile[];
       
       if (!uploadedFiles || uploadedFiles.length === 0) {
-        return res.status(400).json({ error: "No files uploaded" });
+        res.status(400).json({ error: "No files uploaded" });
+        return;
       }
 
       const validFiles = uploadedFiles.filter((file: CloudinaryFile) => file.cloudinaryId && file.cloudinaryUrl);
@@ -928,7 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/properties/:propertyId/media", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.post("/api/admin/properties/:propertyId/media", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('📤 Individual media upload started for property:', req.params.propertyId);
       console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
@@ -958,7 +955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Add multiple media files at once to a property
-  app.post("/api/admin/properties/:propertyId/media/batch", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.post("/api/admin/properties/:propertyId/media/batch", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('📤 Media batch upload started for property:', req.params.propertyId);
       console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
@@ -1023,7 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/media/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.delete("/api/admin/media/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1070,7 +1067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/properties/:propertyId/media/:id/featured", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.put("/api/admin/properties/:propertyId/media/:id/featured", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       const propertyId = parseInt(req.params.propertyId);
@@ -1092,7 +1089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Nearby Facilities
-  app.post("/api/admin/properties/:propertyId/facilities", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.post("/api/admin/properties/:propertyId/facilities", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const propertyId = parseInt(req.params.propertyId);
       if (isNaN(propertyId)) {
@@ -1173,7 +1170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/facilities/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.delete("/api/admin/facilities/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1193,7 +1190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inquiry Management
-  app.get("/api/admin/inquiries", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.get("/api/admin/inquiries", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const filters: any = {};
       
@@ -1213,7 +1210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Temporary debugging endpoint to see all inquiry IDs (public)
-  app.get("/api/debug/inquiry-ids", async (req: any, res: any, next: any) => {
+  app.get("/api/debug/inquiry-ids", async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('🔍 Debug endpoint called - fetching all inquiry IDs');
       const inquiries = await storage.getInquiries();
@@ -1231,7 +1228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/inquiries/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.put("/api/admin/inquiries/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -1254,7 +1251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/admin/inquiries/:id", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.delete("/api/admin/inquiries/:id", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log(`🗑️ DELETE /api/admin/inquiries/:id route called`);
       console.log(`📦 Request params:`, req.params);
@@ -1286,7 +1283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email Testing Routes - Admin only
-  app.get("/api/admin/email/test-config", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.get("/api/admin/email/test-config", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('🧪 Testing email configuration...');
       // Test email configuration would go here
@@ -1298,7 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/email/send-test", ensureAuthenticated, async (req: any, res: any, next: any) => {
+  app.post("/api/admin/email/send-test", ensureAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
     try {
       console.log('📧 Sending test email...');
       // Send test email would go here
@@ -1311,7 +1308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cloudinary webhook for async transformation notifications
-  app.post("/api/webhooks/cloudinary", async (req: any, res: any) => {
+  app.post("/api/webhooks/cloudinary", async (req: Request, res: Response) => {
     try {
       console.log("🔗 Cloudinary webhook received");
       console.log("📋 Webhook data:", JSON.stringify(req.body, null, 2));

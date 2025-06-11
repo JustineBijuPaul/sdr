@@ -1,145 +1,77 @@
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: sdr-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword123}
-      MYSQL_DATABASE: ${DB_NAME:-southdelhirealestate}
-      MYSQL_USER: ${DB_USER:-root}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./migrations:/docker-entrypoint-initdb.d
-    networks:
-      - sdr-network
-    command: --default-authentication-plugin=mysql_native_password
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  # Redis (optional - for caching and sessions)
-  redis:
-    image: redis:7-alpine
-    container_name: sdr-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - sdr-network
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Main Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: sdr-app
-    restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      # Database Configuration
-      DB_HOST: mysql
-      DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-}
-      DB_NAME: ${DB_NAME:-southdelhirealestate}
-      DB_PORT: 3306
-      
-      # Server Configuration
-      NODE_ENV: production
-      PORT: 7822
-      HMR_PORT: 7823
-      LOG_LEVEL: info
-      
-      # Security
-      SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key-change-this-in-production}
-      ALLOWED_ORIGINS: http://localhost:7822,http://127.0.0.1:7822,http://localhost:3000,http://127.0.0.1:3000
-      
-      # Cloudinary Configuration
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      
-      # Email Configuration
-      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_SECURE: ${EMAIL_SECURE:-false}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
-      EMAIL_FROM: ${EMAIL_FROM}
-      
-      # Google OAuth Configuration
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:7822/api/auth/google/callback}
-      
-      # Client Configuration
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:7822}
-      
-      # Redis Configuration (optional)
-      REDIS_URL: redis://redis:6379
     ports:
       - "7822:7822"
       - "7823:7823"
+      - "7824:7824"
+    environment:
+      - NODE_ENV=production
+      - PORT=7822
+      - HMR_PORT=7823
+      - DB_HOST=host.docker.internal
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=southdelhirealestate
+      - DB_PORT=3306
+      - ALLOWED_ORIGINS=http://localhost:7822,http://127.0.0.1:7822,https://southdelhirealty.com,https://taxandtaxes.com
+      - BACKEND_URL=https://southdelhirealty.com
+      - LOG_LEVEL=info
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_SECURE=${EMAIL_SECURE}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - CASHFREE_APP_ID=${CASHFREE_APP_ID}
+      - CASHFREE_SECRET_KEY=${CASHFREE_SECRET_KEY}
+      - CASHFREE_ENVIRONMENT=${CASHFREE_ENVIRONMENT}
+      - FRONTEND_URL=https://taxandtaxes.com
+      - CLIENT_URL=https://southdelhirealty.com
+      - TAX_EMAIL_SERVICE_PORT=7824
+      - TAX_EMAIL_USER=taxndtaxes@gmail.com
+      - TAX_EMAIL_PASS=oyxtyoqitsgqwtkk
+      - TAX_ADMIN_EMAIL=taxndtaxes@gmail.com
     volumes:
-      - app_uploads:/app/uploads
-      - app_logs:/app/logs
+      - uploads:/app/uploads
+      - logs:/app/logs
+    restart: unless-stopped
     networks:
-      - sdr-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7822/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.docker
 
-  # Nginx Reverse Proxy (optional - for production)
   nginx:
     image: nginx:alpine
-    container_name: sdr-nginx
-    restart: unless-stopped
-    depends_on:
-      - app
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
-      - app_uploads:/var/www/uploads:ro
+      - uploads:/usr/share/nginx/uploads
+    depends_on:
+      - app
+    restart: unless-stopped
     networks:
-      - sdr-network
-    profiles:
-      - production
-
-volumes:
-  mysql_data:
-    driver: local
-  redis_data:
-    driver: local
-  app_uploads:
-    driver: local
-  app_logs:
-    driver: local
+      - app-network
 
 networks:
-  sdr-network:
-    driver: bridge 
+  app-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  logs: 

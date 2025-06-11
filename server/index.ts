@@ -4,11 +4,13 @@ import 'dotenv/config';
 // Production-ready imports
 import compression from 'compression';
 import cors from 'cors';
-import express from "express";
+import express, { type Express, type Request, type Response } from "express";
 import session from 'express-session';
 import helmet from 'helmet';
+import { createServer } from 'http';
 import morgan from 'morgan';
 import passport from 'passport';
+import { initializeDB } from './db';
 import { registerRoutes } from "./routes";
 import sitemapRoutes from './sitemap';
 import { storage } from './storage';
@@ -21,245 +23,257 @@ const logger = createLogger();
 // Set a flag to identify we're using in-memory storage
 (global as any).USE_IN_MEMORY_STORAGE = true;
 
-// Create Express instance
-const app = express();
+async function startServer() {
+  try {
+    // Initialize database first
+    await initializeDB();
+    console.log('✅ Database initialized successfully');
 
-// Trust proxy for production deployments (nginx, cloudflare, etc.)
-app.set('trust proxy', 1);
-
-// Basic middleware setup
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
-
-// Security middleware
-const isDevelopment = process.env.NODE_ENV === 'development';
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      mediaSrc: ["'self'", "https:", "data:", "blob:", "https://res.cloudinary.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      connectSrc: [
-        "'self'", 
-        "https://api.cloudinary.com", 
-        "https://res.cloudinary.com", 
-        "https://overpass-api.de",
-        // Allow WebSocket connections in development
-        ...(isDevelopment ? [
-          "ws://localhost:*",
-          "ws://127.0.0.1:*", 
-          "wss://localhost:*",
-          "wss://127.0.0.1:*"
-        ] : [])
-      ],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'self'"],
-      scriptSrcAttr: ["'none'"],
-      upgradeInsecureRequests: isDevelopment ? null : []
-    }
-  },
-  crossOriginEmbedderPolicy: false
-}));
-
-// Compression middleware for production
-app.use(compression({
-  level: 6,
-  threshold: 1024,
-  filter: (req: any, res: any) => {
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
-    return compression.filter(req, res);
-  }
-}));
-
-// Rate limiting removed - no maximum login attempts
-
-// HTTP request logging
-if (process.env.NODE_ENV === 'production') {
-  app.use(morgan('combined', {
-    stream: {
-      write: (message: string) => logger.info(message.trim())
-    }
-  }));
-} else {
-  app.use(morgan('dev'));
-}
-
-// CORS configuration with proper origins
-const nodeEnv = (process.env.NODE_ENV || 'development').trim();
-
-// In production, use the allowed origins from env, otherwise be more permissive for development
-const allowedOrigins = nodeEnv === 'production' 
-  ? (process.env.ALLOWED_ORIGINS || 'http://localhost:7822,http://127.0.0.1:7822,http://localhost:5000,http://127.0.0.1:5000,https://southdelhirealty.com').split(',').filter(Boolean).map(origin => origin.trim())
-  : [
-      'http://localhost:3000',
-      'http://localhost:5000',
-      'http://localhost:7822',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:5000',
-      'http://127.0.0.1:7822',
-      'https://southdelhirealty.com'
-    ];
-
-console.log(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`);
-
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (same-origin requests, mobile apps, curl requests)
-    // This is safe when the server is serving both frontend and API
-    if (!origin) {
-      return callback(null, true);
-    }
+    // Create Express instance
+    const app: Express = express();
     
-    if (origin && allowedOrigins.includes(origin)) {
-      callback(null, true);
+    // Create HTTP server
+    const server = createServer(app);
+
+    // Trust proxy for production deployments (nginx, cloudflare, etc.)
+    app.set('trust proxy', 1);
+
+    // Basic middleware setup
+    app.use(express.json({ limit: '100mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+
+    // Security middleware
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          imgSrc: ["'self'", "data:", "https:", "blob:"],
+          mediaSrc: ["'self'", "https:", "data:", "blob:", "https://res.cloudinary.com"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          connectSrc: [
+            "'self'", 
+            "https://api.cloudinary.com", 
+            "https://res.cloudinary.com", 
+            "https://overpass-api.de",
+            // Allow WebSocket connections in development
+            ...(isDevelopment ? [
+              "ws://localhost:*",
+              "ws://127.0.0.1:*", 
+              "wss://localhost:*",
+              "wss://127.0.0.1:*"
+            ] : [])
+          ],
+          frameSrc: ["'none'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'self'"],
+          scriptSrcAttr: ["'none'"],
+          upgradeInsecureRequests: isDevelopment ? null : []
+        }
+      },
+      crossOriginEmbedderPolicy: false
+    }));
+
+    // Compression middleware for production
+    app.use(compression({
+      level: 6,
+      threshold: 1024,
+      filter: (req: Request, res: Response) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      }
+    }));
+
+    // Rate limiting removed - no maximum login attempts
+
+    // HTTP request logging
+    if (process.env.NODE_ENV === 'production') {
+      app.use(morgan('combined', {
+        stream: {
+          write: (message: string) => logger.info(message.trim())
+        }
+      }));
     } else {
-      logger.warn(`CORS blocked request from origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOrigins)}`);
-      callback(new Error('Not allowed by CORS'), false);
+      app.use(morgan('dev'));
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Set-Cookie']
-};
 
-app.use(cors(corsOptions));
+    // CORS configuration with proper origins
+    const nodeEnv = (process.env.NODE_ENV || 'development').trim();
 
-// Session configuration with production-ready settings
-if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'your-secret-key-change-in-production') {
-  if (process.env.NODE_ENV === 'production') {
-    logger.error('SESSION_SECRET must be set in production!');
-    process.exit(1);
-  } else {
-    logger.warn('Using default SESSION_SECRET in development');
-  }
-}
+    // In production, use the allowed origins from env, otherwise be more permissive for development
+    const allowedOrigins = nodeEnv === 'production' 
+      ? (process.env.ALLOWED_ORIGINS || 'http://localhost:7822,http://127.0.0.1:7822,http://localhost:5000,http://127.0.0.1:5000,https://southdelhirealty.com').split(',').filter(Boolean).map(origin => origin.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:5000',
+          'http://localhost:7822',
+          'http://127.0.0.1:3000',
+          'http://127.0.0.1:5000',
+          'http://127.0.0.1:7822',
+          'https://southdelhirealty.com'
+        ];
 
-// Configure session middleware
-const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  store: storage.sessionStore,
-  name: 'southdelhi.session',
-  proxy: true, // Trust the reverse proxy
-  cookie: {
-    secure: false, // Set to false for development
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    sameSite: 'lax' as const // Required for Google OAuth
-  }
-};
+    console.log(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`);
 
-// Adjust cookie settings based on environment
-if (process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true') {
-  sessionConfig.cookie.secure = true;
-  sessionConfig.cookie.sameSite = 'lax' as const; // Keep as 'lax' for OAuth
-}
+    const corsOptions: cors.CorsOptions = {
+      origin: (origin, callback) => {
+        // Allow requests with no origin (same-origin requests, mobile apps, curl requests)
+        // This is safe when the server is serving both frontend and API
+        if (!origin) {
+          return callback(null, true);
+        }
+        
+        if (origin && allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          logger.warn(`CORS blocked request from origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOrigins)}`);
+          callback(new Error('Not allowed by CORS'), false);
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+      exposedHeaders: ['Set-Cookie']
+    };
 
-app.use(session(sessionConfig));
+    app.use(cors(corsOptions));
 
-// Initialize passport and session
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Health check endpoint
-app.get('/health', (req: any, res: any) => {
-  const taxService = (global as any).taxService;
-  const taxServiceStatus = process.env.NODE_ENV === 'production' 
-    ? (taxService && !taxService.killed ? 'running' : 'stopped')
-    : 'not_applicable_in_dev';
-
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    environment: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0',
-    services: {
-      taxEmailService: {
-        status: taxServiceStatus,
-        port: process.env.TAX_EMAIL_SERVICE_PORT || '7824'
+    // Session configuration with production-ready settings
+    if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'your-secret-key-change-in-production') {
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('SESSION_SECRET must be set in production!');
+        process.exit(1);
+      } else {
+        logger.warn('Using default SESSION_SECRET in development');
       }
     }
-  });
-});
 
-// Readiness check (for Kubernetes/Docker)
-app.get('/ready', async (req: any, res: any) => {
-  try {
-    // Check database connection using our storage layer
-    await storage.getDashboardStats(); // Simple health check
-    res.status(200).json({ status: 'Ready' });
-  } catch (error) {
-    logger.error('Readiness check failed:', error);
-    res.status(503).json({ status: 'Not Ready', error: 'Database connection failed' });
-  }
-});
-
-// Metrics endpoint (basic)
-app.get('/metrics', (req: any, res: any) => {
-  const metrics = {
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    cpu: process.cpuUsage(),
-    timestamp: new Date().toISOString()
-  };
-  res.json(metrics);
-});
-
-// Request logging middleware for API routes
-app.use((req: any, res: any, next: any) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson: any, ...args: any[]) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+    // Configure session middleware
+    const sessionConfig = {
+      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+      resave: false,
+      saveUninitialized: false,
+      store: storage.sessionStore,
+      name: 'southdelhi.session',
+      proxy: true, // Trust the reverse proxy
+      cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true,
       }
+    };
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-      
-      // Log errors to winston
-      if (res.statusCode >= 400) {
-        logger.error(`${req.method} ${path} ${res.statusCode} - ${req.ip} - ${duration}ms`);
-      }
+    // Adjust cookie settings based on environment
+    if (process.env.NODE_ENV === 'production' && process.env.SSL_ENABLED === 'true') {
+      sessionConfig.cookie.secure = true;
+      sessionConfig.cookie.sameSite = 'lax' as const; // Keep as 'lax' for OAuth
     }
-  });
 
-  next();
-});
+    app.use(session(sessionConfig));
 
-// SEO routes (sitemap and robots.txt) - before API routes
-app.use('/', sitemapRoutes);
+    // Initialize passport and session
+    app.use(passport.initialize());
+    app.use(passport.session());
 
-(async () => {
-  try {
-    const server = await registerRoutes(app);
+    // Health check endpoint
+    app.get('/health', (req: Request, res: Response) => {
+      const taxService = (global as any).taxService;
+      const taxServiceStatus = process.env.NODE_ENV === 'production' 
+        ? (taxService && !taxService.killed ? 'running' : 'stopped')
+        : 'not_applicable_in_dev';
+
+      res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        environment: process.env.NODE_ENV || 'development',
+        version: process.env.npm_package_version || '1.0.0',
+        services: {
+          taxEmailService: {
+            status: taxServiceStatus,
+            port: process.env.TAX_EMAIL_SERVICE_PORT || '7824'
+          }
+        }
+      });
+    });
+
+    // Readiness check (for Kubernetes/Docker)
+    app.get('/ready', async (req: any, res: any) => {
+      try {
+        // Check database connection using our storage layer
+        await storage.getDashboardStats(); // Simple health check
+        res.status(200).json({ status: 'Ready' });
+      } catch (error) {
+        logger.error('Readiness check failed:', error);
+        res.status(503).json({ status: 'Not Ready', error: 'Database connection failed' });
+      }
+    });
+
+    // Metrics endpoint (basic)
+    app.get('/metrics', (req: any, res: any) => {
+      const metrics = {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage(),
+        timestamp: new Date().toISOString()
+      };
+      res.json(metrics);
+    });
+
+    // Request logging middleware for API routes
+    app.use((req: any, res: any, next: any) => {
+      const start = Date.now();
+      const path = req.path;
+      let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+      const originalResJson = res.json;
+      res.json = function (bodyJson: any, ...args: any[]) {
+        capturedJsonResponse = bodyJson;
+        return originalResJson.apply(res, [bodyJson, ...args]);
+      };
+
+      res.on("finish", () => {
+        const duration = Date.now() - start;
+        if (path.startsWith("/api")) {
+          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+          if (capturedJsonResponse) {
+            logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+          }
+
+          if (logLine.length > 80) {
+            logLine = logLine.slice(0, 79) + "…";
+          }
+
+          log(logLine);
+          
+          // Log errors to winston
+          if (res.statusCode >= 400) {
+            logger.error(`${req.method} ${path} ${res.statusCode} - ${req.ip} - ${duration}ms`);
+          }
+        }
+      });
+
+      next();
+    });
+
+    // SEO routes (sitemap and robots.txt) - before API routes
+    app.use('/', sitemapRoutes);
+
+    // Register all application routes
+    await registerRoutes(app);
+    console.log('✅ Routes registered successfully');
+
+    // Serve static files
+    app.use(express.static('dist/public'));
 
     // Setup Vite in development or static files in production (after API routes)
     const env = (process.env.NODE_ENV || 'development').trim();
@@ -431,4 +445,10 @@ app.use('/', sitemapRoutes);
     logger.error('Failed to start server:', error);
     process.exit(1);
   }
-})();
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error('❌ Unhandled error:', error);
+  process.exit(1);
+});

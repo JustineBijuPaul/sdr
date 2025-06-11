@@ -13,7 +13,10 @@ const app = express();
 const PORT = process.env.TAX_EMAIL_SERVICE_PORT || 7824;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+  credentials: true
+}));
 app.use(express.json());
 
 // Email configuration
@@ -365,14 +368,31 @@ app.get('/api/tax-health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Tax Email Service running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Tax Email Service running on http://0.0.0.0:${PORT}`);
   console.log(`📧 Tax Admin email: ${process.env.TAX_ADMIN_EMAIL || 'taxndtaxes@gmail.com'}`);
   console.log(`📧 Tax Email user: ${process.env.TAX_EMAIL_USER || 'NOT SET'}`);
   console.log(`🔑 Tax Email pass configured: ${process.env.TAX_EMAIL_PASS ? 'YES' : 'NO'}`);
   console.log('✅ Ready to handle Tax And Taxes contact form submissions!');
 }).on('error', (err) => {
   console.error('❌ Tax Email Service startup error:', err);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM. Performing graceful shutdown...');
+  server.close(() => {
+    console.log('Tax Email Service closed.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('Received SIGINT. Performing graceful shutdown...');
+  server.close(() => {
+    console.log('Tax Email Service closed.');
+    process.exit(0);
+  });
 });
 
 export default app; 
