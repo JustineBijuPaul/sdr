@@ -1,8 +1,6 @@
 # Development override for docker-compose.yml
 # This file provides development-specific configurations
 
-version: '3.8'
-
 services:
   app:
     build:

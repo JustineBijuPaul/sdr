@@ -83,6 +83,10 @@ COPY shared ./shared
 COPY migrations ./migrations
 COPY scripts/init-superadmin.js ./scripts/
 
+# Ensure our Vite fix is included
+COPY vite.config.ts ./
+COPY package*.json ./
+
 # Create necessary directories with correct permissions
 RUN mkdir -p /app/logs /app/uploads && \
     chown -R nodejs:nodejs /app
